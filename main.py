@@ -14,6 +14,7 @@ import requests
 import re
 import json
 import CommonFunctions
+import time
 
 common = CommonFunctions
 # from bs4 import BeautifulSoup
@@ -27,58 +28,18 @@ _handle = int(sys.argv[1])
 # Here we use a fixed set of properties simply for demonstrating purposes
 # In a "real life" plugin you will need to get info and links to video files/streams
 # from some web-site or online service.
-VIDEOS = {'Animals': [{'name': 'Crab',
-                       'thumb': 'http://www.vidsplay.com/wp-content/uploads/2017/04/crab-screenshot.jpg',
-                       'video': 'http://www.vidsplay.com/wp-content/uploads/2017/04/crab.mp4',
-                       'genre': 'Animals'},
-                      {'name': 'Alligator',
-                       'thumb': 'http://www.vidsplay.com/wp-content/uploads/2017/04/alligator-screenshot.jpg',
-                       'video': 'http://www.vidsplay.com/wp-content/uploads/2017/04/alligator.mp4',
-                       'genre': 'Animals'},
-                      {'name': 'Turtle',
-                       'thumb': 'http://www.vidsplay.com/wp-content/uploads/2017/04/turtle-screenshot.jpg',
-                       'video': 'http://www.vidsplay.com/wp-content/uploads/2017/04/turtle.mp4',
-                       'genre': 'Animals'}
-                      ],
-          'Cars': [{'name': 'Postal Truck',
-                    'thumb': 'http://www.vidsplay.com/wp-content/uploads/2017/05/us_postal-screenshot.jpg',
-                    'video': 'http://www.vidsplay.com/wp-content/uploads/2017/05/us_postal.mp4',
-                    'genre': 'Cars'},
-                   {'name': 'Traffic',
-                    'thumb': 'http://www.vidsplay.com/wp-content/uploads/2017/05/traffic1-screenshot.jpg',
-                    'video': 'http://www.vidsplay.com/wp-content/uploads/2017/05/traffic1.mp4',
-                    'genre': 'Cars'},
-                   {'name': 'Traffic Arrows',
-                    'thumb': 'http://www.vidsplay.com/wp-content/uploads/2017/05/traffic_arrows-screenshot.jpg',
-                    'video': 'http://www.vidsplay.com/wp-content/uploads/2017/05/traffic_arrows.mp4',
-                    'genre': 'Cars'}
-                   ],
-          'Food': [{'name': 'Chicken',
+VIDEOS = {'https://www.tamilmv.app': [{'name': 'Chicken',
                     'thumb': 'http://www.vidsplay.com/wp-content/uploads/2017/05/bbq_chicken-screenshot.jpg',
                     'video': 'http://www.vidsplay.com/wp-content/uploads/2017/05/bbqchicken.mp4',
-                    'genre': 'Food'},
-                   {'name': 'Hamburger',
-                    'thumb': 'http://www.vidsplay.com/wp-content/uploads/2017/05/hamburger-screenshot.jpg',
-                    'video': 'http://www.vidsplay.com/wp-content/uploads/2017/05/hamburger.mp4',
-                    'genre': 'Food'},
-                   {'name': 'Pizza',
-                    'thumb': 'http://www.vidsplay.com/wp-content/uploads/2017/05/pizza-screenshot.jpg',
-                    'video': 'http://www.vidsplay.com/wp-content/uploads/2017/05/pizza.mp4',
-                    'genre': 'Food'}
-                   ],
+                    'genre': 'Food'}],
+          'https://movieretina.me': [{'name': 'Chicken',
+                    'thumb': 'http://www.vidsplay.com/wp-content/uploads/2017/05/bbq_chicken-screenshot.jpg',
+                    'video': 'http://www.vidsplay.com/wp-content/uploads/2017/05/bbqchicken.mp4',
+                    'genre': 'Food'}],
           'https://hdhub4u.mobi': [{'name': 'Chicken',
-                                    'thumb': 'http://www.vidsplay.com/wp-content/uploads/2017/05/bbq_chicken-screenshot.jpg',
-                                    'video': 'http://www.vidsplay.com/wp-content/uploads/2017/05/bbqchicken.mp4',
-                                    'genre': 'Food'},
-                                   {'name': 'Hamburger',
-                                    'thumb': 'http://www.vidsplay.com/wp-content/uploads/2017/05/hamburger-screenshot.jpg',
-                                    'video': 'http://www.vidsplay.com/wp-content/uploads/2017/05/hamburger.mp4',
-                                    'genre': 'Food'},
-                                   {'name': 'Pizza',
-                                    'thumb': 'http://www.vidsplay.com/wp-content/uploads/2017/05/pizza-screenshot.jpg',
-                                    'video': 'http://www.vidsplay.com/wp-content/uploads/2017/05/pizza.mp4',
-                                    'genre': 'Food'}
-                                   ]}
+                    'thumb': 'http://www.vidsplay.com/wp-content/uploads/2017/05/bbq_chicken-screenshot.jpg',
+                    'video': 'http://www.vidsplay.com/wp-content/uploads/2017/05/bbqchicken.mp4',
+                    'genre': 'Food'}]}
 
 
 def get_url(**kwargs):
@@ -96,7 +57,7 @@ def get_url(**kwargs):
 def is_playable(content_url):
     print('is playable called for ')
     print(content_url)
-    if content_url.startswith('https://linkstaker.club'):
+    if content_url.startswith('https://linkstaker.club') or content_url.startswith('https://mvlinks.ooo'):
         return True
     elif is_uptostream_domain(content_url):
         return True
@@ -141,7 +102,7 @@ def get_folder_content(category):
     :rtype: list
     """
 
-    if category.startswith('MovieRetina'):
+    if category.startswith('https://movieretina.me'):
         # Display the list of videos in a provided category.
         return get_movie_retina(category)
     elif category.startswith('https://hdhub4u.mobi'):
@@ -151,28 +112,82 @@ def get_folder_content(category):
         return get_linkscare(category)
     elif category.startswith('https://uptobox.com'):
         return uptobox(category)
+    elif category.startswith('https://www.tamilmv.app'):
+        return get_tamilmv(category)
     else:
         return VIDEOS[category]
 
 
 def get_movie_retina(content_url):
     movieList = []
-    page = requests.get(content_url)
-    print(page)
-    upper = common.parseDOM(page.text, 'div', attrs={'class': 'bw_thumb_title'})
-    # soup = BeautifulSoup(page.text, 'html.parser')
-    # upper = soup.find_all('div', attrs={'class': 'bw_thumb_title'})
+    genre = 'movie'
+    headers = {
+        'User-Agent': 'Mozilla'
+    }
+    page = requests.get(content_url, headers=headers)
+    # print(page)
 
-    for row in upper:
-        thumb = row.select('//div[@class="bw_thumb"]//img/@src').extract()
-        title = row.find('h1', attrs={'class': 'h1title'}).get_text()
-        genre = 'movie'
-        video_url = row.select('//div[@class="bw_title"]//a/@href').extract()
-        movieList.append({'name': title,
-                          'thumb': thumb,
-                          'video': video_url,
-                          'genre': genre}
-                         )
+    detail_page_container = common.parseDOM(page.text, 'div', attrs={'class': 'bw_desc'})
+
+    if len(detail_page_container) > 0:
+        print('found detail page container')
+        thumb = ''
+        movie_thumb = common.parseDOM(detail_page_container, 'img', ret='src')
+        if len(movie_thumb) > 0:
+            print('found detail page thumb')
+            thumb = movie_thumb[0]
+        movie_links = common.parseDOM(detail_page_container, 'tr')
+        for row in movie_links:
+            print('iterating movie links')
+            movie_links_title = common.parseDOM(row, 'th')
+            if len(movie_links_title) > 0:
+                print(movie_links_title)
+                movie_title = common.stripTags(movie_links_title[0])
+                print('movie link title found')
+                movie_links_details = common.parseDOM(row, 'td')
+                if len(movie_links_details) > 0:
+                    print('movie link details found')
+                    first_td = movie_links_details[0]
+                    print(first_td)
+                    regex_result = re.findall("https://mvlinks.*'", first_td)
+                    if len(regex_result) > 0:
+                        result = regex_result[0][:-1]
+                        video_url = result
+                        movieList.append({'name': movie_title,
+                                          'thumb': thumb,
+                                          'video': video_url,
+                                          'genre': genre}
+                                         )
+    else:
+        upper = common.parseDOM(page.text, 'div', attrs={'class': 'bw_thumb_title'})
+        # soup = BeautifulSoup(page.text, 'html.parser')
+        # upper = soup.find_all('div', attrs={'class': 'bw_thumb_title'})
+        print('iterating the thumb titles')
+        print(upper)
+        for row in upper:
+            thumb = common.parseDOM(row, 'img', ret='src')[0]
+            # print(thumb)
+            figure_caption = common.parseDOM(row, 'h1')[0]
+            # print(figure_caption)
+            title = common.stripTags(figure_caption)
+            # print(title)
+            video_url = common.parseDOM(row, 'a', ret='href')[0]
+
+            movieList.append({'name': title,
+                              'thumb': thumb,
+                              'video': video_url,
+                              'genre': genre}
+                             )
+        next_page_link_container = common.parseDOM(page.text, 'div', attrs={'class': 'nav-previous alignleft'})
+        if len(next_page_link_container) > 0:
+            next_page_link = common.parseDOM(next_page_link_container, 'a', ret='href')
+            if len(next_page_link) > 0:
+                next_link = next_page_link[0]
+                movieList.append({'name': 'Next',
+                                  'thumb': 'thumb',
+                                  'video': next_link,
+                                  'genre': genre
+                                  })
     return movieList
 
 
@@ -227,6 +242,59 @@ def get_hdhub(content_url):
                               })
     return movieList
 
+
+def get_tamilmv(content_url):
+    movieList = []
+    genre = 'movie'
+    headers = {
+        'User-Agent': 'Mozilla'
+    }
+    page = requests.get(content_url, headers=headers)
+    # print(page)
+    print(content_url)
+    print(page.status_code)
+    print('getting pln container')
+    pln_container = common.parseDOM(page.text, 'span', attrs={'class': 'pln'})
+    print(len(pln_container))
+
+    if len(pln_container) > 0:
+        all_links = pln_container[0].splitlines()
+        for row in all_links:
+            print(row)
+            movieList.append({'name': row,
+                              'thumb': '',
+                              'video': row,
+                              'genre': genre}
+                             )
+        print(all_links)
+    else:
+        upper_container = common.parseDOM(page.text, 'div', attrs={'class': 'ipsWidget_inner '})
+        print(len(upper_container))
+        upper = common.parseDOM(upper_container, 'a', ret='href')
+        print(upper[0])
+        # soup = BeautifulSoup(page.text, 'html.parser')
+        # upper = soup.find_all('div', attrs={'class': 'bw_thumb_title'})
+        print('iterating the thumb titles')
+        print(len(upper))
+        print(upper)
+        for row in upper:
+            print(row)
+            thumb = ''  # common.parseDOM(row, 'img', ret='src')[0]
+            # print(thumb)
+            title = row
+            if title.endswith('/'):
+                title = title[:-1]
+
+            title = title.rsplit('/', 1)[-1]
+            # print(title)
+            video_url = row
+
+            movieList.append({'name': title,
+                              'thumb': thumb,
+                              'video': video_url,
+                              'genre': genre}
+                             )
+    return movieList
 
 def get_linkscare(content_url):
     movieList = []
@@ -288,6 +356,59 @@ def uptobox(content_url):
                           'genre': genre}
                          )
     return movieList
+
+
+def get_mvlinks_playable_path(content_url):
+    print('fetching mvlinks url')
+    print(content_url)
+    headers = {
+        'User-Agent': 'Mozilla'
+    }
+    page = requests.get(content_url, headers=headers)
+    print(page.status_code)
+    result = re.findall("https://elinks.*'", page.text)[0]
+    result = result[:-1]
+    print('found elinks for the mvlink content')
+    print(result)
+    elinks_requests = requests.session()
+    elinks_page = elinks_requests.get(result, headers=headers)
+    print(elinks_page.status_code)
+    print(elinks_page.headers)
+    name_collection = common.parseDOM(elinks_page.text, 'input', ret='name')
+    value_collection = common.parseDOM(elinks_page.text, 'input', ret='value')
+    print('found the nv collection this time')
+    print(name_collection)
+    print(value_collection)
+    payload = {}
+    for n, v in zip(name_collection, value_collection):
+        payload[str(n)] = str(v)
+    print('post payload ready to post')
+    print(payload)
+    data_to_send = str(urlencode(payload))
+    print('sending the data below')
+    print(data_to_send)
+    headers['x-requested-with'] = 'XMLHttpRequest'
+    headers['Content-Type'] = 'application/x-www-form-urlencoded'
+    time.sleep(16)  # Waiting for 16 seconds
+    post_result = elinks_requests.post('https://elinks.ooo/links/go', headers=headers, data=data_to_send)
+    print('trying to investigate the request...')
+    # print(post_result.request.headers)
+    print(post_result.text)
+    print(post_result.status_code)
+    json_object = json.loads(post_result.text)
+    gdfiles_url = json_object['url']
+
+    headers = {
+        'User-Agent': 'Mozilla',
+        'referer': result
+    }
+    gdfiles_url_result = requests.get(gdfiles_url, headers=headers)
+    print('gdfiles_url processing completed with status code')
+    print(gdfiles_url_result.status_code)
+    print(gdfiles_url_result.headers)
+    refresh_header_value = gdfiles_url_result.headers['refresh']
+    refresh_header_url_value = re.findall('https.*', refresh_header_value)[0]
+    return refresh_header_url_value
 
 
 def list_categories():
@@ -405,7 +526,8 @@ def play_video(path):
         print('regex found match')
         print(result)
         path = result
-
+    elif path.startswith('https://mvlinks.ooo'):
+        path = get_mvlinks_playable_path(path)
     # Create a playable item with a path to play.
     play_item = xbmcgui.ListItem(path=path)
     # Pass the item to the Kodi player.
