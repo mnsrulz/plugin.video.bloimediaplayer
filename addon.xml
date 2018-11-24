@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <addon id="plugin.video.bloimediaplayer"
-version="0.1.0"
+version="0.2.0"
 name="Bloi Media Player"
 provider-name="MnsRulz">
 <requires>
@@ -22,6 +22,6 @@ provider-name="MnsRulz">
     <screenshot>resources\screenshot-02.jpg</screenshot>
     <screenshot>resources\screenshot-03.jpg</screenshot>    
   </assets>
-  <news>Initial version</news>
+  <news>movieretina added as a source with hd gdrive links /nInitial version</news>
 </extension>
 </addon>
