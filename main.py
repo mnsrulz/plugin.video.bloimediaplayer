@@ -177,16 +177,15 @@ def get_movie_retina(content_url):
                               'video': video_url,
                               'genre': genre}
                              )
-        next_page_link_container = common.parseDOM(page.text, 'div', attrs={'class': 'nav-previous alignleft'})
-        if len(next_page_link_container) > 0:
-            next_page_link = common.parseDOM(next_page_link_container, 'a', ret='href')
-            if len(next_page_link) > 0:
-                next_link = next_page_link[0]
-                movieList.append({'name': 'Next',
-                                  'thumb': 'thumb',
-                                  'video': next_link,
-                                  'genre': genre
-                                  })
+        next_page_link = common.parseDOM(page.text, 'a', attrs={'class': 'next page-numbers'}, ret='href')
+        print('printing the next page link')
+        if len(next_page_link) > 0:
+            next_link = next_page_link[0]
+            movieList.append({'name': 'Next',
+                              'thumb': 'thumb',
+                              'video': next_link,
+                              'genre': genre
+                              })
     return movieList
 
 
@@ -365,7 +364,7 @@ def get_mvlinks_playable_path(content_url):
     }
     page = requests.get(content_url, headers=headers)
     print(page.status_code)
-    # print(page.text)
+    print(page.text)
     result = re.findall("https://urls.work.*?'", page.text)[0]
     # there are google links also, but now we just get what we have in the first
     result = result[:-1]
