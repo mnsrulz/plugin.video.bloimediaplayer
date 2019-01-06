@@ -36,7 +36,7 @@ VIDEOS = {'https://www.tamilmv.app': [{'name': 'Chicken',
                     'thumb': 'http://www.vidsplay.com/wp-content/uploads/2017/05/bbq_chicken-screenshot.jpg',
                     'video': 'http://www.vidsplay.com/wp-content/uploads/2017/05/bbqchicken.mp4',
                     'genre': 'Food'}],
-          'https://hdhub4u.mobi': [{'name': 'Chicken',
+          'https://hdhub4u.icu': [{'name': 'Chicken',
                     'thumb': 'http://www.vidsplay.com/wp-content/uploads/2017/05/bbq_chicken-screenshot.jpg',
                     'video': 'http://www.vidsplay.com/wp-content/uploads/2017/05/bbqchicken.mp4',
                     'genre': 'Food'}]}
@@ -57,7 +57,7 @@ def get_url(**kwargs):
 def is_playable(content_url):
     print('is playable called for ')
     print(content_url)
-    if content_url.startswith('https://linkstaker.club') or content_url.startswith('https://mvlinks.ooo'):
+    if content_url.startswith('https://linkstaker.') or content_url.startswith('https://mvlinks.ooo'):
         return True
     elif is_uptostream_domain(content_url):
         return True
@@ -101,11 +101,10 @@ def get_folder_content(category):
     :return: the list of videos in the category
     :rtype: list
     """
-
-    if category.startswith('https://movieretina.me'):
+    if category.startswith('https://movieretina'):
         # Display the list of videos in a provided category.
         return get_movie_retina(category)
-    elif category.startswith('https://hdhub4u.mobi'):
+    elif category.startswith('https://hdhub4u'):
         # Play a video from a provided URL.
         return get_hdhub(category)
     elif category.startswith('https://linkscare.net'):
@@ -125,7 +124,7 @@ def get_movie_retina(content_url):
         'User-Agent': 'Mozilla'
     }
     page = requests.get(content_url, headers=headers)
-    # print(page)
+    print("get movie retina: " + content_url)
 
     detail_page_container = common.parseDOM(page.text, 'div', attrs={'class': 'bw_desc'})
 
@@ -203,7 +202,7 @@ def get_hdhub(content_url):
     found_link = False
     for row in all_links:
         print('printing all_links element second time')
-        if row.startswith('https://linkstaker.club') or row.startswith('https://linkscare.net'):
+        if row.startswith('https://linkstaker.') or row.startswith('https://linkscare.net'):
             print('found one useful link')
             print(row)
             found_link = True
@@ -366,12 +365,15 @@ def get_mvlinks_playable_path(content_url):
     }
     page = requests.get(content_url, headers=headers)
     print(page.status_code)
-    result = re.findall("https://elinks.*'", page.text)[0]
+    # print(page.text)
+    result = re.findall("https://urls.work.*?'", page.text)[0]
+    # there are google links also, but now we just get what we have in the first
     result = result[:-1]
     print('found elinks for the mvlink content')
     print(result)
     elinks_requests = requests.session()
     elinks_page = elinks_requests.get(result, headers=headers)
+    print('getting the result for :' + result)
     print(elinks_page.status_code)
     print(elinks_page.headers)
     name_collection = common.parseDOM(elinks_page.text, 'input', ret='name')
@@ -390,7 +392,7 @@ def get_mvlinks_playable_path(content_url):
     headers['x-requested-with'] = 'XMLHttpRequest'
     headers['Content-Type'] = 'application/x-www-form-urlencoded'
     time.sleep(16)  # Waiting for 16 seconds
-    post_result = elinks_requests.post('https://elinks.ooo/links/go', headers=headers, data=data_to_send)
+    post_result = elinks_requests.post('https://urls.work/links/go', headers=headers, data=data_to_send)
     print('trying to investigate the request...')
     # print(post_result.request.headers)
     print(post_result.text)
@@ -517,7 +519,7 @@ def play_video(path):
     :type path: str
     """
 
-    if path.startswith('https://linkstaker.club'):
+    if path.startswith('https://linkstaker.'):
         page = requests.get(path)
         print('fetching links care url')
         print(path)
