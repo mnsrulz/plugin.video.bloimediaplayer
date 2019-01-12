@@ -55,8 +55,8 @@ def get_url(**kwargs):
 
 
 def is_playable(content_url):
-    print('is playable called for ')
-    print(content_url)
+    # print('is playable called for ')
+    # print(content_url)
     if content_url.startswith('https://linkstaker.') or content_url.startswith('https://mvlinks.ooo'):
         return True
     elif is_uptostream_domain(content_url):
@@ -193,15 +193,19 @@ def get_hdhub(content_url):
     genre = 'movie'
     movieList = []
     print('downloading hdhub content url')
-    print(content_url)
+    # print(content_url)
     page = requests.get(content_url)
     print(page.status_code)
-    all_links = common.parseDOM(page.text, 'a', ret='href')
-    thumb = 'https://www.jiopic.com/images/2018/11/16/vlcsnap-2018-11-16-00h23m58s651.png'  # sample only
+    main_page = common.parseDOM(page.text, 'main', attrs={"class": "page-body"})
     found_link = False
-    for row in all_links:
-        print('printing all_links element second time')
-        if row.startswith('https://linkstaker.') or row.startswith('https://linkscare.net'):
+    print('found content....')
+    print(len(main_page))
+    if len(main_page) > 0:
+        all_links = common.parseDOM(main_page[0], 'a', ret='href')
+        thumb = 'https://www.jiopic.com/images/2018/11/16/vlcsnap-2018-11-16-00h23m58s651.png'  # sample only
+        for row in all_links:
+            print('printing all_links element second time')
+            # if row.startswith('https://linkstaker.') or row.startswith('https://linkscare.net'):
             print('found one useful link')
             print(row)
             found_link = True
@@ -365,8 +369,21 @@ def get_mvlinks_playable_path(content_url):
     page = requests.get(content_url, headers=headers)
     print(page.status_code)
     print(page.text)
-    result = re.findall("https://urls.work.*?'", page.text)[0]
-    # there are google links also, but now we just get what we have in the first
+
+    index = 0
+
+    urlsresults = re.findall("https://urls.work.*?'", page.text)
+    if len(urlsresults) > 1:
+        # Noticed that two links are there now, so letting the user select the server
+        links = list(map(lambda x: "Link# " + str(x+1), range(len(urlsresults))))
+        index = xbmcgui.Dialog().select(heading='Multiple links found - Choose one link',
+                                        list=links)
+        # index = xbmcgui.Dialog().select(heading='Choose Server',
+        #                                list=['Server 1 (Private)', 'Server 2 (Google)'])
+        index = index - 1
+
+    result = urlsresults[index]
+
     result = result[:-1]
     print('found elinks for the mvlink content')
     print(result)
@@ -489,8 +506,8 @@ def list_contents(category):
         list_item.setProperty('IsPlayable', 'true')
         # Create a URL for a plugin recursive call.
         # Example: plugin://plugin.video.example/?action=play&video=http://www.vidsplay.com/wp-content/uploads/2017/04/crab.mp4
-        print('getting url of the video link')
-        print(video['video'])
+        # print('getting url of the video link')
+        # print(video['video'])
         if is_playable(video['video']):
             url = get_url(action='play', video=video['video'])
             is_folder = False
