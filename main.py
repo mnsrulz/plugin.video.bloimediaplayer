@@ -107,7 +107,7 @@ def get_folder_content(category):
     elif category.startswith('https://hdhub4u'):
         # Play a video from a provided URL.
         return get_hdhub(category)
-    elif category.startswith('https://linkscare.net'):
+    elif category.startswith('https://linkscare.net') or category.startswith('https://linkrit'):
         return get_linkscare(category)
     elif category.startswith('https://uptobox.com'):
         return uptobox(category)
