@@ -7,7 +7,7 @@
 import sys
 from urllib import urlencode
 from urlparse import parse_qsl
-from urlparse import urlparse
+from urlparse import urlparse, parse_qs
 import xbmcgui
 import xbmcplugin
 import requests
@@ -15,6 +15,7 @@ import re
 import json
 import CommonFunctions
 import time
+import base64
 
 common = CommonFunctions
 # from bs4 import BeautifulSoup
@@ -33,6 +34,10 @@ VIDEOS = {'https://www.tamilmv.app': [{'name': 'Chicken',
                     'video': 'http://www.vidsplay.com/wp-content/uploads/2017/05/bbqchicken.mp4',
                     'genre': 'Food'}],
           'https://movieretina.me': [{'name': 'Chicken',
+                    'thumb': 'http://www.vidsplay.com/wp-content/uploads/2017/05/bbq_chicken-screenshot.jpg',
+                    'video': 'http://www.vidsplay.com/wp-content/uploads/2017/05/bbqchicken.mp4',
+                    'genre': 'Food'}],
+          'https://extramovies.host': [{'name': 'Chicken',
                     'thumb': 'http://www.vidsplay.com/wp-content/uploads/2017/05/bbq_chicken-screenshot.jpg',
                     'video': 'http://www.vidsplay.com/wp-content/uploads/2017/05/bbqchicken.mp4',
                     'genre': 'Food'}],
@@ -57,7 +62,9 @@ def get_url(**kwargs):
 def is_playable(content_url):
     # print('is playable called for ')
     # print(content_url)
-    if content_url.startswith('https://linkstaker.') or content_url.startswith('https://mvlinks.ooo'):
+    if content_url.startswith('https://linkstaker.') or content_url.startswith('https://mvlinks.ooo')\
+            or content_url.startswith('http://extralinks.') or content_url.startswith('https://extralinks.') \
+            or content_url.startswith('http://filecupid') or content_url.startswith('https://filecupid'):
         return True
     elif is_uptostream_domain(content_url):
         return True
@@ -113,6 +120,8 @@ def get_folder_content(category):
         return uptobox(category)
     elif category.startswith('https://www.tamilmv.app'):
         return get_tamilmv(category)
+    elif category.startswith('https://extramovies') or category.startswith('http://extramovies') :
+        return get_extramovies(category)
     else:
         return VIDEOS[category]
 
@@ -164,7 +173,7 @@ def get_movie_retina(content_url):
         print('iterating the thumb titles')
         print(upper)
         for row in upper:
-            thumb = common.parseDOM(row, 'img', ret='src')[0]
+            thumb = common.parseDOM(row, 'img', ret='src')[1]
             # print(thumb)
             figure_caption = common.parseDOM(row, 'h1')[0]
             # print(figure_caption)
@@ -228,6 +237,88 @@ def get_hdhub(content_url):
             title = common.stripTags(figure_caption)
             # print(title)
             video_url = common.parseDOM(figure_caption, 'a', ret='href')[0]
+            # print(video_url)
+            movieList.append({'name': title,
+                              'thumb': thumb,
+                              'video': video_url,
+                              'genre': genre}
+                             )
+        next_page_link = common.parseDOM(page.text, 'a', attrs={'class': 'next page-numbers'}, ret='href')
+        if len(next_page_link) > 0:
+            next_link = next_page_link[0]
+            movieList.append({'name': 'Next',
+                              'thumb': 'thumb',
+                              'video': next_link,
+                              'genre': genre
+                              })
+    return movieList
+
+
+def get_extramovies(content_url):
+    genre = 'movie'
+    movieList = []
+    print('downloading extramovies content url')
+    # print(content_url)
+    page = requests.get(content_url)
+    print(page.status_code)
+    main_page = common.parseDOM(page.text, 'div', attrs={"class": "entry clearfix"})
+    found_link = False
+    print('found extramovies content....')
+    print(len(main_page))
+    if len(main_page) > 0:
+        all_links = common.parseDOM(main_page[0], 'a')
+        all_links_titles = common.parseDOM(main_page[0], 'a', ret='href')
+
+        thumb = common.parseDOM(main_page[0], 'img', ret='src')[0]
+
+        # for row in all_links:
+        for i in range(0, len(all_links)):
+            video_link = all_links_titles[i]
+            print('Printing video link : ' + video_link)
+            row = all_links[i]
+            if video_link.startswith('/drive.php'):
+                print('found a google drive link... downloading the content of the page')
+                parsed_url = urlparse(content_url)
+                google_drive_download_page = requests.get(parsed_url.scheme + '://' + parsed_url.netloc + video_link)
+                google_drive_links = common.parseDOM(google_drive_download_page.text, 'a', ret='href')
+                for each_link in google_drive_links:
+                    if each_link.startswith('http://extralinks'):
+                        video_link = each_link
+            elif video_link.startswith('/download.php'):
+                video_link = video_link.replace('#038;', '')    # cleaning a bit
+                print('printing query segments of the url')
+                query_param = parse_qs(urlparse(video_link).query)
+                print(parse_qs(urlparse(video_link).query))
+                decoded_link = base64.b64decode(query_param['link'][0])
+                print('decoded link : ' + decoded_link)
+                video_link = decoded_link
+            else:
+                continue
+
+            print('printing all_links element second time')
+            # if row.startswith('https://linkstaker.') or row.startswith('https://linkscare.net'):
+            print('found one useful link')
+            print(row)
+            found_link = True
+            movieList.append({'name': common.stripTags(row) + ' ## ' + video_link,
+                              'thumb': thumb,
+                              'video': video_link,
+                              'genre': genre}
+                             )
+    if not found_link:
+        upper = common.parseDOM(page.text, 'div', attrs={'class': 'imag'})
+        print(upper)
+        # soup = BeautifulSoup(page.text, 'html.parser')
+        # upper = soup.find_all('div', attrs={'class': 'bw_thumb_title'})
+        for row in upper:
+            # print(row)
+            thumb = common.parseDOM(row, 'img', ret='src')[0]
+            # print(thumb)
+            figure_caption = common.parseDOM(row, 'a', ret='title')[0]
+            # print(figure_caption)
+            title = common.stripTags(figure_caption)
+            # print(title)
+            video_url = common.parseDOM(row, 'a', ret='href')[0]
             # print(video_url)
             movieList.append({'name': title,
                               'thumb': thumb,
@@ -535,7 +626,7 @@ def play_video(path):
     :type path: str
     """
 
-    if path.startswith('https://linkstaker.'):
+    if path.startswith('https://linkstaker.') or path.startswith('http://extralinks.club'):
         page = requests.get(path)
         print('fetching links care url')
         print(path)
@@ -546,6 +637,9 @@ def play_video(path):
         path = result
     elif path.startswith('https://mvlinks.ooo'):
         path = get_mvlinks_playable_path(path)
+    elif path.startswith('http://filecupid.com') or path.startswith('https://filecupid.com'):
+        page = requests.get(path)
+        path = common.parseDOM(page.text, 'source', ret='src')[0]
     # Create a playable item with a path to play.
     play_item = xbmcgui.ListItem(path=path)
     # Pass the item to the Kodi player.
