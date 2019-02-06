@@ -29,20 +29,20 @@ _handle = int(sys.argv[1])
 # Here we use a fixed set of properties simply for demonstrating purposes
 # In a "real life" plugin you will need to get info and links to video files/streams
 # from some web-site or online service.
-VIDEOS = {'https://www.tamilmv.app': [{'name': 'Chicken',
-                    'thumb': 'http://www.vidsplay.com/wp-content/uploads/2017/05/bbq_chicken-screenshot.jpg',
+VIDEOS = {'https://www.tamilmv.cz': [{'name': 'Chicken',
+                    'thumb': 'https://www.tamilmv.cz/uploads/monthly_2018_02/logo.png.635a011b01c97555a09f57bfd0e6b405.png.7eb11ef9469043049d2a5ab0b57d468f.png',
                     'video': 'http://www.vidsplay.com/wp-content/uploads/2017/05/bbqchicken.mp4',
                     'genre': 'Food'}],
           'https://movieretina.me': [{'name': 'Chicken',
-                    'thumb': 'http://www.vidsplay.com/wp-content/uploads/2017/05/bbq_chicken-screenshot.jpg',
+                    'thumb': 'https://2.bp.blogspot.com/-u8ya2x-bSTs/W4765dKMORI/AAAAAAAAAtI/-x5_yrgo3Bk8iylKMoeRg7Qtm4Xck2TBQCLcBGAs/s1600/MovieRetina%2BBlue%2BLogo.png',
                     'video': 'http://www.vidsplay.com/wp-content/uploads/2017/05/bbqchicken.mp4',
                     'genre': 'Food'}],
           'https://extramovies.host': [{'name': 'Chicken',
-                    'thumb': 'http://www.vidsplay.com/wp-content/uploads/2017/05/bbq_chicken-screenshot.jpg',
+                    'thumb': 'http://extramovies.host/wp-content/uploads/2018/03/logo.png',
                     'video': 'http://www.vidsplay.com/wp-content/uploads/2017/05/bbqchicken.mp4',
                     'genre': 'Food'}],
-          'https://hdhub4u.icu': [{'name': 'Chicken',
-                    'thumb': 'http://www.vidsplay.com/wp-content/uploads/2017/05/bbq_chicken-screenshot.jpg',
+          'https://hdhub4u.host': [{'name': 'Chicken',
+                    'thumb': 'https://hdhub4u.pw/wp-content/uploads/2018/09/rsz_1coollogo_com-16691619.png',
                     'video': 'http://www.vidsplay.com/wp-content/uploads/2017/05/bbqchicken.mp4',
                     'genre': 'Food'}]}
 
@@ -62,8 +62,13 @@ def get_url(**kwargs):
 def is_playable(content_url):
     # print('is playable called for ')
     # print(content_url)
-    if content_url.startswith('https://linkstaker.') or content_url.startswith('https://mvlinks.ooo')\
-            or content_url.startswith('http://extralinks.') or content_url.startswith('https://extralinks.') \
+    if content_url.startswith('https://linkstaker.') or content_url.startswith('https://mvlinks.ooo') \
+            or content_url.startswith('https://anotepad') \
+            or content_url.startswith('https://pastebin') \
+            or content_url.startswith('https://vidoza') \
+            or content_url.startswith('https://streamango.com') \
+            or content_url.startswith('https://openload') \
+            or re.match('https?:\/\/extralinks.[\w\d]*/more', content_url) \
             or content_url.startswith('http://filecupid') or content_url.startswith('https://filecupid'):
         return True
     elif is_uptostream_domain(content_url):
@@ -108,17 +113,19 @@ def get_folder_content(category):
     :return: the list of videos in the category
     :rtype: list
     """
+    print('We are in get_category folder: ' + category)
     if category.startswith('https://movieretina'):
         # Display the list of videos in a provided category.
         return get_movie_retina(category)
     elif category.startswith('https://hdhub4u'):
         # Play a video from a provided URL.
         return get_hdhub(category)
-    elif category.startswith('https://linkscare.net') or category.startswith('https://linkrit'):
+    elif category.startswith('https://linkscare') or category.startswith('https://linkrit')\
+            or re.match('https?:\/\/extralinks.[\w\d]*/view', category):
         return get_linkscare(category)
     elif category.startswith('https://uptobox.com'):
         return uptobox(category)
-    elif category.startswith('https://www.tamilmv.app'):
+    elif category.startswith('https://www.tamilmv'):
         return get_tamilmv(category)
     elif category.startswith('https://extramovies') or category.startswith('http://extramovies') :
         return get_extramovies(category)
@@ -138,34 +145,50 @@ def get_movie_retina(content_url):
     detail_page_container = common.parseDOM(page.text, 'div', attrs={'class': 'bw_desc'})
 
     if len(detail_page_container) > 0:
-        print('found detail page container')
-        thumb = ''
-        movie_thumb = common.parseDOM(detail_page_container, 'img', ret='src')
-        if len(movie_thumb) > 0:
-            print('found detail page thumb')
-            thumb = movie_thumb[0]
-        movie_links = common.parseDOM(detail_page_container, 'tr')
-        for row in movie_links:
-            print('iterating movie links')
-            movie_links_title = common.parseDOM(row, 'th')
-            if len(movie_links_title) > 0:
-                print(movie_links_title)
-                movie_title = common.stripTags(movie_links_title[0])
-                print('movie link title found')
-                movie_links_details = common.parseDOM(row, 'td')
-                if len(movie_links_details) > 0:
-                    print('movie link details found')
-                    first_td = movie_links_details[0]
-                    print(first_td)
-                    regex_result = re.findall("https://mvlinks.*'", first_td)
-                    if len(regex_result) > 0:
-                        result = regex_result[0][:-1]
-                        video_url = result
-                        movieList.append({'name': movie_title,
-                                          'thumb': thumb,
-                                          'video': video_url,
-                                          'genre': genre}
-                                         )
+        if "DelayRedirect()" in page.text:
+            movie_title = common.stripTags(common.parseDOM(page.text, 'h1', attrs={'class': 'bw_h1title_single'})[0])
+            thumb = common.parseDOM(page.text, 'img', attrs={'class': 'bw_poster'}, ret='data-src')[0]
+            print('Printing movie_retina page')
+            print(re.findall('(?:anotepad|pastebin)[^"]*', page.text))
+            print('new len of regex found: ' + str(len(re.findall('(?:anotepad|pastebin)[^"]*', page.text))))
+            # print(page.text.encode('ascii', 'ignore').decode('ascii'))
+
+            video_url = 'https://' + re.findall('(?:anotepad|pastebin)[^"]*', page.text)[0].replace('"', "")
+            print('Found a movie_retina url: ' + video_url)
+            movieList.append({'name': movie_title,
+                              'thumb': thumb,
+                              'video': video_url,
+                              'genre': genre}
+                             )
+        else:
+            print('found detail page container')
+            thumb = ''
+            movie_thumb = common.parseDOM(detail_page_container, 'img', ret='src')
+            if len(movie_thumb) > 0:
+                print('found detail page thumb')
+                thumb = movie_thumb[0]
+            movie_links = common.parseDOM(detail_page_container, 'tr')
+            for row in movie_links:
+                print('iterating movie links')
+                movie_links_title = common.parseDOM(row, 'th')
+                if len(movie_links_title) > 0:
+                    print(movie_links_title)
+                    movie_title = common.stripTags(movie_links_title[0])
+                    print('movie link title found')
+                    movie_links_details = common.parseDOM(row, 'td')
+                    if len(movie_links_details) > 0:
+                        print('movie link details found')
+                        first_td = movie_links_details[0]
+                        print(first_td)
+                        regex_result = re.findall("https://mvlinks.*'", first_td)
+                        if len(regex_result) > 0:
+                            result = regex_result[0][:-1]
+                            video_url = result
+                            movieList.append({'name': movie_title,
+                                              'thumb': thumb,
+                                              'video': video_url,
+                                              'genre': genre}
+                                             )
     else:
         upper = common.parseDOM(page.text, 'div', attrs={'class': 'bw_thumb_title'})
         # soup = BeautifulSoup(page.text, 'html.parser')
@@ -257,8 +280,7 @@ def get_hdhub(content_url):
 def get_extramovies(content_url):
     genre = 'movie'
     movieList = []
-    print('downloading extramovies content url')
-    # print(content_url)
+    print('downloading extramovies content url: ' + content_url)
     page = requests.get(content_url)
     print(page.status_code)
     main_page = common.parseDOM(page.text, 'div', attrs={"class": "entry clearfix"})
@@ -292,6 +314,9 @@ def get_extramovies(content_url):
                 decoded_link = base64.b64decode(query_param['link'][0])
                 print('decoded link : ' + decoded_link)
                 video_link = decoded_link
+            elif 'extralinks' in video_link:
+                print('found a extralink...')
+
             else:
                 continue
 
@@ -452,35 +477,45 @@ def uptobox(content_url):
 
 
 def get_mvlinks_playable_path(content_url):
-    print('fetching mvlinks url')
-    print(content_url)
+    print('fetching mvlinks url: ' + content_url)
+    # print(content_url)
     headers = {
         'User-Agent': 'Mozilla'
     }
     page = requests.get(content_url, headers=headers)
     print(page.status_code)
-    print(page.text)
+    # print(page.text)
 
     index = 0
 
-    urlsresults = re.findall("https://urls.work.*?'", page.text)
+    urlsresults = re.findall("https?:\/\/urls.[^\s\"]*", page.text)
+    print('printing list of playable mvlinks urls')
+    print(urlsresults)
     if len(urlsresults) > 1:
+        urlsresults = list(set(urlsresults))
         # Noticed that two links are there now, so letting the user select the server
         links = list(map(lambda x: "Link# " + str(x+1), range(len(urlsresults))))
         index = xbmcgui.Dialog().select(heading='Multiple links found - Choose one link',
-                                        list=links)
+                                        list=['Choose server '] + links)
         # index = xbmcgui.Dialog().select(heading='Choose Server',
         #                                list=['Server 1 (Private)', 'Server 2 (Google)'])
-        index = index - 1
+        # index = index - 1
 
-    result = urlsresults[index]
+    print('Index selected: ' + str(index))
+    if index < 1:
+        return ""
+    result = urlsresults[index - 2]
 
-    result = result[:-1]
+    # result = result[:-1]
     print('found elinks for the mvlink content')
     print(result)
     elinks_requests = requests.session()
     elinks_page = elinks_requests.get(result, headers=headers)
     print('getting the result for :' + result)
+
+    if elinks_page.status_code != 200:  # if status code not equals to 200 return from here
+        print('url status code return non 200 status code')
+        return ""
     print(elinks_page.status_code)
     print(elinks_page.headers)
     name_collection = common.parseDOM(elinks_page.text, 'input', ret='name')
@@ -625,8 +660,8 @@ def play_video(path):
     :param path: Fully-qualified video URL
     :type path: str
     """
-
-    if path.startswith('https://linkstaker.') or path.startswith('http://extralinks.club'):
+    # we need to make practice of using regex more & more
+    if re.match('https?:\/\/(linkstaker|extralinks)', path):
         page = requests.get(path)
         print('fetching links care url')
         print(path)
@@ -635,15 +670,28 @@ def play_video(path):
         print('regex found match')
         print(result)
         path = result
-    elif path.startswith('https://mvlinks.ooo'):
+    elif re.match('https?:\/\/(mvlinks|anotepad|pastebin)', path):
         path = get_mvlinks_playable_path(path)
-    elif path.startswith('http://filecupid.com') or path.startswith('https://filecupid.com'):
+    elif path.startswith('http://filecupid.com') or path.startswith('https://filecupid.com') or \
+            path.startswith('https://vidoza.net') or path.startswith('http://vidoza.net'):
         page = requests.get(path)
         path = common.parseDOM(page.text, 'source', ret='src')[0]
-    # Create a playable item with a path to play.
-    play_item = xbmcgui.ListItem(path=path)
-    # Pass the item to the Kodi player.
-    xbmcplugin.setResolvedUrl(_handle, True, listitem=play_item)
+    elif path.startswith('https://streamango.com') or path.startswith('https://openload'):
+        if path.startswith('https://openload'):
+            path = 'https://openload.co/embed/47mbVvzLbOI/'
+        page = requests.get(path)
+        result = requests.post('http://local.com:3000/ol', json={'b': page.text, 'u': path})
+        print(result.status_code)
+        print(result.text)
+        json_response = json.loads(result.text)
+        path = json_response[0]['src']
+    if not path:
+        print('Nothing to play')
+    else:
+        # Create a playable item with a path to play.
+        play_item = xbmcgui.ListItem(path=path)
+        # Pass the item to the Kodi player.
+        xbmcplugin.setResolvedUrl(_handle, True, listitem=play_item)
 
 
 def router(paramstring):
