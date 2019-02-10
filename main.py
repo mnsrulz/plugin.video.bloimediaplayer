@@ -7,6 +7,7 @@
 import sys
 import urllib
 from urllib import urlencode
+from urlparse import urljoin
 from urlparse import parse_qsl
 from urlparse import urlparse, parse_qs
 import xbmcgui
@@ -68,7 +69,7 @@ def is_playable(content_url):
             or content_url.startswith('https://anotepad') \
             or content_url.startswith('https://pastebin') \
             or content_url.startswith('https://vidoza') \
-            or re.match('https:\/\/(zupload|userscloud|streamango|streamcherry)', content_url) \
+            or re.match('https:\/\/(zupload|userscloud|streamango|streamcherry|clicknupload)', content_url) \
             or re.match('https:\/\/(drive|docs).google.com', content_url) \
             or content_url.startswith('https://openload') \
             or re.match('https?:\/\/extralinks.[\w\d]*/more', content_url) \
@@ -290,7 +291,7 @@ def get_extramovies(content_url):
     print(page.status_code)
     main_page = common.parseDOM(page.text, 'div', attrs={"class": "entry clearfix"})
     found_link = False
-    print('found extramovies content....')
+    print('found extramovies content 10:51....')
     print(len(main_page))
     if len(main_page) > 0:
         all_links = common.parseDOM(main_page[0], 'a')
@@ -301,17 +302,19 @@ def get_extramovies(content_url):
         # for row in all_links:
         for i in range(0, len(all_links)):
             video_link = all_links_titles[i]
-            print('Printing video link : ' + video_link)
+            print('Printing original video link : ' + video_link)
+            video_link = urljoin(page.url, video_link)
+            absolute_parsed_url = urlparse(video_link)
             row = all_links[i]
-            if video_link.startswith('/drive.php'):
+            if absolute_parsed_url.path.startswith('/drive.php'):
                 print('found a google drive link... downloading the content of the page')
-                parsed_url = urlparse(content_url)
-                google_drive_download_page = requests.get(parsed_url.scheme + '://' + parsed_url.netloc + video_link)
+                parsed_base_url = urlparse(content_url)
+                google_drive_download_page = requests.get(parsed_base_url.scheme + '://' + parsed_base_url.netloc + video_link)
                 google_drive_links = common.parseDOM(google_drive_download_page.text, 'a', ret='href')
                 for each_link in google_drive_links:
                     if each_link.startswith('http://extralinks'):
                         video_link = each_link
-            elif video_link.startswith('/download.php'):
+            elif absolute_parsed_url.path.startswith('/download.php'):
                 video_link = video_link.replace('#038;', '')    # cleaning a bit
                 print('printing query segments of the url')
                 query_param = parse_qs(urlparse(video_link).query)
@@ -319,17 +322,21 @@ def get_extramovies(content_url):
                 decoded_link = base64.b64decode(query_param['link'][0])
                 print('decoded link : ' + decoded_link)
                 video_link = decoded_link
+            elif re.match('\/(trailer.php|cast\/|director\/|author\/)', absolute_parsed_url.path) or \
+                    absolute_parsed_url.netloc.startswith('ghoto-12'):
+                print('Ignoring this link')
+                continue
             elif 'extralinks' in video_link:
                 print('found a extralink...')
-
             else:
+                video_link = absolute_parsed_url.geturl()
                 print('some unknown link... still adding')
                 #continue
 
             print('printing all_links element second time')
             # if row.startswith('https://linkstaker.') or row.startswith('https://linkscare.net'):
-            print('found one useful link')
-            print(row)
+            print('found one useful link: ' + video_link)
+            # print(row)
             found_link = True
             movieList.append({'name': common.stripTags(row) + ' ## ' + video_link,
                               'thumb': thumb,
@@ -638,6 +645,39 @@ def get_userscloud_playable_path(content_url):
     return ''
 
 
+def get_clicknupload_playable_path(content_url):
+    print('fetching clicknupload url: ' + content_url)
+    clicknuploadsessionrequest = requests.session()
+    page = clicknuploadsessionrequest.get(content_url)
+    print(page.status_code)
+    form_which_need_to_post = common.parseDOM(page.text, 'Form')[0]
+    print(form_which_need_to_post)
+    id_value = common.parseDOM(form_which_need_to_post, 'input', attrs={'name': 'id', 'type': 'hidden'}, ret='value')[0]
+    payload = {}
+    payload['op'] = 'download2'
+    payload['id'] = id_value
+    payload['rand'] = ''
+    payload['referer'] = page.url
+    payload['method_free'] = 'Free Download >>'
+    payload['method_premium'] = ''
+    payload['adblock_detected'] = ''
+
+    # for n, v in zip(name_collection, value_collection):
+    #     payload[str(n)] = str(v)
+    print('post payload ready to post')
+    print(payload)
+    post_result = clicknuploadsessionrequest.post(page.url, data=payload)
+    print(post_result.status_code)
+    # print('printing clicknupload page post form')
+    # print_normalized(post_result.text)
+
+    download_links = common.parseDOM(post_result.text, 'button', attrs={'id': 'downloadbtn'}, ret='onClick')[0]
+    final_download_url = re.findall("http[^']*", download_links)[0]
+    print('found some useful for clicknupload')
+    print_normalized(final_download_url)
+    return final_download_url
+
+
 def list_categories():
     """
     Create the list of video categories in the Kodi interface.
@@ -767,6 +807,8 @@ def play_video(path):
         path = get_zupload_playable_path(path)
     elif re.match('https?:\/\/userscloud', path):
         path = get_userscloud_playable_path(path)
+    elif re.match('https?:\/\/clicknupload', path):
+        path = get_clicknupload_playable_path(path)
     elif re.match('https?:\/\/(streamango|streamcherry|openload)', path):
         page = requests.get(path)
         result = requests.post('https://gd2gp-dev.herokuapp.com/ol', json={'b': page.text, 'u': path})
@@ -781,6 +823,10 @@ def play_video(path):
         play_item = xbmcgui.ListItem(path=path)
         # Pass the item to the Kodi player.
         xbmcplugin.setResolvedUrl(_handle, True, listitem=play_item)
+
+
+def print_normalized(content):
+    print(content.encode('ascii', 'ignore').decode('ascii'))
 
 
 def router(paramstring):
