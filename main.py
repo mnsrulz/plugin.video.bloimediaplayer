@@ -19,6 +19,7 @@ import CommonFunctions
 import time
 import base64
 import HTMLParser
+import os
 
 common = CommonFunctions
 # from bs4 import BeautifulSoup
@@ -69,7 +70,8 @@ def is_playable(content_url):
             or content_url.startswith('https://anotepad') \
             or content_url.startswith('https://pastebin') \
             or content_url.startswith('https://vidoza') \
-            or re.match('https:\/\/(zupload|userscloud|streamango|streamcherry|clicknupload)', content_url) \
+            or re.match('https:\/\/(zupload|userscloud|streamango|streamcherry|'
+                        'clicknupload|racaty|desiupload|bdupload|www.indishare|indishare)', content_url) \
             or re.match('https:\/\/(drive|docs).google.com', content_url) \
             or content_url.startswith('https://openload') \
             or re.match('https?:\/\/extralinks.[\w\d]*/more', content_url) \
@@ -165,7 +167,7 @@ def get_movie_retina(content_url):
                 print('Found a movie_retina url: ' + 'https://' + video_url[0])
                 movieList.append({'name': movie_title,
                                   'thumb': thumb,
-                                  'video': video_url,
+                                  'video': 'https://' + video_url[0],
                                   'genre': genre}
                                  )
         if not found_link:  # even if the link contains delayredirect text, some page still fails
@@ -198,7 +200,17 @@ def get_movie_retina(content_url):
                                               'genre': genre}
                                              )
     else:
-        while True:
+        filepath = os.path.join(xbmc.translatePath('special://home'), 'userdata', 'movieretina.json')
+        all_urls = []
+        new_listings_added = False
+        looper = True
+        if os.path.isfile(filepath):
+            with open(filepath) as f:
+                movieList = json.load(f)
+                for m in movieList:
+                    all_urls.append(m['video'])
+
+        while looper:
             page = requests.get(content_url, headers=headers)
             upper = common.parseDOM(page.text, 'div', attrs={'class': 'bw_thumb_title'})
             # soup = BeautifulSoup(page.text, 'html.parser')
@@ -213,6 +225,11 @@ def get_movie_retina(content_url):
                 title = common.stripTags(figure_caption)
                 # print(title)
                 video_url = common.parseDOM(row, 'a', ret='href')[0]
+                if video_url in all_urls:
+                    looper = False
+                    break
+
+                new_listings_added = True
 
                 movieList.append({'name': title,
                                   'thumb': thumb,
@@ -224,7 +241,10 @@ def get_movie_retina(content_url):
             if len(next_page_link) > 0:
                 content_url = next_page_link[0]
             else:
-                break
+                looper = False
+        if new_listings_added:
+            with open(filepath, 'w') as outfile:
+                json.dump(movieList, outfile)
     return movieList
 
 
@@ -254,7 +274,17 @@ def get_hdhub(content_url):
                               'genre': genre}
                              )
     if not found_link:
-        while True:
+        filepath = os.path.join(xbmc.translatePath('special://home'), 'userdata', 'hdhub.json')
+        all_urls = []
+        new_listings_added = False
+        looper = True
+        if os.path.isfile(filepath):
+            with open(filepath) as f:
+                movieList = json.load(f)
+                for m in movieList:
+                    all_urls.append(m['video'])
+
+        while looper:
             page = requests.get(content_url)
             upper = common.parseDOM(page.text, 'figure')
             print(upper)
@@ -270,6 +300,12 @@ def get_hdhub(content_url):
                 # print(title)
                 video_url = common.parseDOM(figure_caption, 'a', ret='href')[0]
                 # print(video_url)
+                if video_url in all_urls:
+                    looper = False
+                    break
+
+                new_listings_added = True
+
                 movieList.append({'name': title,
                                   'thumb': thumb,
                                   'video': video_url,
@@ -279,7 +315,11 @@ def get_hdhub(content_url):
             if len(next_page_link) > 0:
                 content_url = next_page_link[0]
             else:
-                break
+                looper = False
+        if new_listings_added:
+            with open(filepath, 'w') as outfile:
+                json.dump(movieList, outfile)
+
     return movieList
 
 
@@ -309,7 +349,7 @@ def get_extramovies(content_url):
             if absolute_parsed_url.path.startswith('/drive.php'):
                 print('found a google drive link... downloading the content of the page')
                 parsed_base_url = urlparse(content_url)
-                google_drive_download_page = requests.get(parsed_base_url.scheme + '://' + parsed_base_url.netloc + video_link)
+                google_drive_download_page = requests.get(video_link)
                 google_drive_links = common.parseDOM(google_drive_download_page.text, 'a', ret='href')
                 for each_link in google_drive_links:
                     if each_link.startswith('http://extralinks'):
@@ -322,6 +362,16 @@ def get_extramovies(content_url):
                 decoded_link = base64.b64decode(query_param['link'][0])
                 print('decoded link : ' + decoded_link)
                 video_link = decoded_link
+            elif absolute_parsed_url.path.startswith('/vidoza.php'):
+                query_param = parse_qs(absolute_parsed_url.query)
+                decoded_link = query_param['url'][0]
+                video_link = 'https://vidoza.net/' + decoded_link
+                print('vidoza link found... ' + video_link)
+            elif absolute_parsed_url.path.startswith('/uptostream.php'):
+                query_param = parse_qs(absolute_parsed_url.query)
+                decoded_link = query_param['url'][0]
+                video_link = 'https://uptostream.com/' + decoded_link
+                print('uptostream link found... ' + video_link)
             elif re.match('\/(trailer.php|cast\/|director\/|author\/)', absolute_parsed_url.path) or \
                     absolute_parsed_url.netloc.startswith('ghoto-12'):
                 print('Ignoring this link')
@@ -344,7 +394,17 @@ def get_extramovies(content_url):
                               'genre': genre}
                              )
     if not found_link:
-        while True:
+        filepath = os.path.join(xbmc.translatePath('special://home'), 'userdata', 'extramovies.json')
+        all_urls = []
+        new_listings_added = False
+        looper = True
+        if os.path.isfile(filepath):
+            with open(filepath) as f:
+                movieList = json.load(f)
+                for m in movieList:
+                    all_urls.append(m['video'])
+
+        while looper:
             page = requests.get(content_url)
             upper = common.parseDOM(page.text, 'div', attrs={'class': 'imag'})
             print(upper)
@@ -360,16 +420,28 @@ def get_extramovies(content_url):
                 # print(title)
                 video_url = common.parseDOM(row, 'a', ret='href')[0]
                 # print(video_url)
-                movieList.append({'name': title,
-                                  'thumb': thumb,
-                                  'video': video_url,
-                                  'genre': genre}
-                                 )
+
+                if video_url in all_urls:
+                    looper = False
+                    break
+
+                new_listings_added = True
+
+                movieList.append({
+                    'video': video_url,
+                    'thumb': thumb,
+                    'name': title,
+                    'genre': genre
+                })
+
             next_page_link = common.parseDOM(page.text, 'a', attrs={'class': 'next page-numbers'}, ret='href')
             if len(next_page_link) > 0:
                 content_url = next_page_link[0]
             else:
-                break
+                looper = False
+        if new_listings_added:
+            with open(filepath, 'w') as outfile:
+                json.dump(movieList, outfile)
 
     return movieList
 
@@ -509,7 +581,7 @@ def get_mvlinks_playable_path(content_url):
 
     index = 0
 
-    urlsresults = re.findall("https?:\/\/urls.[^\s\"']*", page.text)
+    urlsresults = re.findall("https?:\/\/urls.[^\s\"'<]*", page.text)
     print('printing list of playable mvlinks urls')
     print(urlsresults)
     if len(urlsresults) > 1:
@@ -678,6 +750,75 @@ def get_clicknupload_playable_path(content_url):
     return final_download_url
 
 
+def get_racaty_playable_path(content_url):
+    print('fetching racaty url: ' + content_url)
+    racatysessionrequest = requests.session()
+    page = racatysessionrequest.get(content_url)
+    print(page.status_code)
+    form_which_need_to_post = common.parseDOM(page.text, 'form')[0]
+    print(form_which_need_to_post)
+    id_value = common.parseDOM(form_which_need_to_post, 'input', attrs={'name': 'id', 'type': 'hidden'}, ret='value')[0]
+    token_value = common.parseDOM(form_which_need_to_post, 'input', attrs={'name': 'token', 'type': 'hidden'}, ret='value')[0]
+    fname_value = common.parseDOM(form_which_need_to_post, 'input', attrs={'name': 'fname', 'type': 'hidden'}, ret='value')[0]
+    payload = {}
+    payload['op'] = 'download2'
+    payload['id'] = id_value
+    payload['usr_login'] = ''
+    payload['referer'] = page.url
+    payload['token'] = token_value
+    payload['method_free'] = 'Free Download'
+    payload['fname'] = fname_value
+
+    print('post payload ready to post')
+    print(payload)
+    post_result = racatysessionrequest.post(page.url, allow_redirects=False, data=payload)
+    print(post_result.status_code)
+    return post_result.headers['Location']
+
+
+def get_desiupload_playable_path(content_url):
+    print('fetching desiupload/indishare url: ' + content_url)
+    desiuploadsessionrequest = requests.session()
+    page = desiuploadsessionrequest.get(content_url)
+    print(page.status_code)
+    form_which_need_to_post = common.parseDOM(page.text, 'form', attrs={'name': 'F1'})[0]
+    print(form_which_need_to_post)
+    id_value = common.parseDOM(form_which_need_to_post, 'input', attrs={'name': 'id', 'type': 'hidden'}, ret='value')[0]
+    payload = {}
+    payload['op'] = 'download2'
+    payload['id'] = id_value
+
+    print('post payload ready to post')
+    print(payload)
+    post_result = desiuploadsessionrequest.post(page.url, data=payload)
+    print(post_result.status_code)
+    download_span_container = common.parseDOM(post_result.text, 'span', attrs={'id': 'direct_link'})
+    final_download_url = common.parseDOM(download_span_container, 'a', ret='href')[0]
+    print(final_download_url)
+    return final_download_url
+
+
+def get_bdupload_playable_path(content_url):
+    print('fetching bdupload url: ' + content_url)
+    bduploadsessionrequest = requests.session()
+    page = bduploadsessionrequest.get(content_url)
+    print(page.status_code)
+    form_which_need_to_post = common.parseDOM(page.text, 'form', attrs={'name': 'F1'})[0]
+    print(form_which_need_to_post)
+    id_value = common.parseDOM(form_which_need_to_post, 'input', attrs={'name': 'id', 'type': 'hidden'}, ret='value')[0]
+    payload = {}
+    payload['op'] = 'download2'
+    payload['id'] = id_value
+
+    print('post payload ready to post')
+    print(payload)
+    post_result = bduploadsessionrequest.post(page.url, data=payload)
+    print(post_result.status_code)
+    print_normalized(post_result.text)
+    regexmatches = re.findall('http:\/\/\w*.indifiles.com[^"]*', post_result.text)
+    return regexmatches[0]
+
+
 def list_categories():
     """
     Create the list of video categories in the Kodi interface.
@@ -737,13 +878,14 @@ def list_contents(category):
     xbmcplugin.setContent(_handle, 'videos')
     # Get the list of videos in the category.
     videos = get_folder_content(category)
+    print('listing contents....')
     # Iterate through videos.
     for video in videos:
         # Create a list item with a text label and a thumbnail image.
         list_item = xbmcgui.ListItem(label=video['name'])
         # Set additional info for the list item.
         # 'mediatype' is needed for skin to display info for this ListItem correctly.
-        list_item.setInfo('video', {'title': video['name'],
+        list_item.setInfo('video', {'title': unescape(video['name']),
                                     'genre': video['genre'],
                                     'mediatype': 'video'})
         # Set graphics (thumbnail, fanart, banner, poster, landscape etc.) for the list item.
@@ -758,6 +900,7 @@ def list_contents(category):
         # print('getting url of the video link')
         # print(video['video'])
         if is_playable(video['video']):
+            list_item.setLabel(video['name'] + '***SUPPORTED***')
             list_item.setProperty('IsPlayable', 'true')
             url = get_url(action='play', video=video['video'])
             is_folder = False
@@ -809,6 +952,12 @@ def play_video(path):
         path = get_userscloud_playable_path(path)
     elif re.match('https?:\/\/clicknupload', path):
         path = get_clicknupload_playable_path(path)
+    elif re.match('https?:\/\/racaty', path):
+        path = get_racaty_playable_path(path)
+    elif re.match('https?:\/\/desiupload', path) or re.match('https?:\/\/www.indishare', path):
+        path = get_desiupload_playable_path(path)
+    elif re.match('https?:\/\/bdupload', path):
+        path = get_bdupload_playable_path(path)
     elif re.match('https?:\/\/(streamango|streamcherry|openload)', path):
         page = requests.get(path)
         result = requests.post('https://gd2gp-dev.herokuapp.com/ol', json={'b': page.text, 'u': path})
@@ -827,6 +976,11 @@ def play_video(path):
 
 def print_normalized(content):
     print(content.encode('ascii', 'ignore').decode('ascii'))
+
+
+def unescape(content):
+    h = HTMLParser.HTMLParser()
+    return h.unescape(content)
 
 
 def router(paramstring):

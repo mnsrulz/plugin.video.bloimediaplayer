@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <addon id="plugin.video.bloimediaplayer"
-version="0.8.1"
+version="0.8.2"
 name="Bloi Media Player"
 provider-name="MnsRulz">
 <requires>
