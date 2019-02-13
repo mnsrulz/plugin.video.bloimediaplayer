@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<settings >    
+    <category label="32032">
+		<setting label="32001" type="action" option="close" action="RunPlugin(plugin://plugin.video.bloimediaplayer/?action=_clear_cache&amp;provider=Extramovies)"/>
+    </category>
+    <category label="32033">
+		<setting label="32001" type="action" option="close" action="RunPlugin(plugin://plugin.video.bloimediaplayer/?action=_clear_cache&amp;provider=HdHub4u)"/>
+    </category>
+	<category label="32034">
+		<setting label="32001" type="action" option="close" action="RunPlugin(plugin://plugin.video.bloimediaplayer/?action=_clear_cache&amp;provider=MovieRetina)"/>
+    </category>
+</settings>

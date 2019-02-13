@@ -10,6 +10,7 @@ from urllib import urlencode
 from urlparse import urljoin
 from urlparse import parse_qsl
 from urlparse import urlparse, parse_qs
+import xbmc
 import xbmcgui
 import xbmcplugin
 import requests
@@ -204,13 +205,32 @@ def get_movie_retina(content_url):
         all_urls = []
         new_listings_added = False
         looper = True
+        new_movieList = []
+        page_counter = 0
         if os.path.isfile(filepath):
             with open(filepath) as f:
                 movieList = json.load(f)
                 for m in movieList:
                     all_urls.append(m['video'])
+        dp = xbmcgui.DialogProgress()
+        dp.create("MovieRetina", "", content_url)
+        total_pages = 0
+        try:
+            last_page = common.parseDOM(page.text, 'a', attrs={'class': 'page-numbers'})[-1]
+            last_page = common.stripTags(last_page)
+            last_page = last_page.replace('Page', '')
+            total_pages = int(last_page)
+        except ValueError:
+            total_pages = 1000  # consider max 1000 pages
 
         while looper:
+            if dp.iscanceled():
+                return new_movieList + movieList
+
+            page_counter = page_counter + 1
+            percent = min((page_counter * 100) / total_pages, 100)
+            dp.update(percent, "Fetching page %s" % content_url, "%s of %s" % (page_counter, total_pages))
+
             page = requests.get(content_url, headers=headers)
             upper = common.parseDOM(page.text, 'div', attrs={'class': 'bw_thumb_title'})
             # soup = BeautifulSoup(page.text, 'html.parser')
@@ -227,15 +247,14 @@ def get_movie_retina(content_url):
                 video_url = common.parseDOM(row, 'a', ret='href')[0]
                 if video_url in all_urls:
                     looper = False
-                    break
+                    continue
 
                 new_listings_added = True
 
-                movieList.append({'name': title,
+                new_movieList.append({'name': title,
                                   'thumb': thumb,
                                   'video': video_url,
-                                  'genre': genre}
-                                 )
+                                  'genre': genre})
             next_page_link = common.parseDOM(page.text, 'a', attrs={'class': 'next page-numbers'}, ret='href')
             print('printing the next page link')
             if len(next_page_link) > 0:
@@ -244,6 +263,7 @@ def get_movie_retina(content_url):
                 looper = False
         if new_listings_added:
             with open(filepath, 'w') as outfile:
+                movieList = new_movieList + movieList
                 json.dump(movieList, outfile)
     return movieList
 
@@ -278,13 +298,32 @@ def get_hdhub(content_url):
         all_urls = []
         new_listings_added = False
         looper = True
+        new_movieList = []
+        page_counter = 0
         if os.path.isfile(filepath):
             with open(filepath) as f:
                 movieList = json.load(f)
                 for m in movieList:
                     all_urls.append(m['video'])
+        dp = xbmcgui.DialogProgress()
+        dp.create("Hdhub4u", "", content_url)
+        total_pages = 0
+        try:
+            last_page = common.parseDOM(page.text, 'a', attrs={'class': 'page-numbers'})[-1]
+            last_page = common.stripTags(last_page)
+            last_page = last_page.replace('Page', '')
+            total_pages = int(last_page)
+        except ValueError:
+            total_pages = 1000  # consider max 1000 pages
 
         while looper:
+            if dp.iscanceled():
+                return new_movieList + movieList
+
+            page_counter = page_counter + 1
+            percent = min((page_counter * 100) / total_pages, 100)
+            dp.update(percent, "Fetching page %s" % content_url, "%s of %s" % (page_counter, total_pages))
+
             page = requests.get(content_url)
             upper = common.parseDOM(page.text, 'figure')
             print(upper)
@@ -302,11 +341,11 @@ def get_hdhub(content_url):
                 # print(video_url)
                 if video_url in all_urls:
                     looper = False
-                    break
+                    continue
 
                 new_listings_added = True
 
-                movieList.append({'name': title,
+                new_movieList.append({'name': title,
                                   'thumb': thumb,
                                   'video': video_url,
                                   'genre': genre}
@@ -318,6 +357,7 @@ def get_hdhub(content_url):
                 looper = False
         if new_listings_added:
             with open(filepath, 'w') as outfile:
+                movieList = new_movieList + movieList
                 json.dump(movieList, outfile)
 
     return movieList
@@ -330,14 +370,15 @@ def get_extramovies(content_url):
     page = requests.get(content_url)
     print(page.status_code)
     main_page = common.parseDOM(page.text, 'div', attrs={"class": "entry clearfix"})
+    if len(main_page) == 0:
+        main_page = common.parseDOM(page.text, 'div', attrs={"class": "wrap"})
     found_link = False
-    print('found extramovies content 10:51....')
+    print('found extra movies content....')
     print(len(main_page))
     if len(main_page) > 0:
-        all_links = common.parseDOM(main_page[0], 'a')
-        all_links_titles = common.parseDOM(main_page[0], 'a', ret='href')
-
-        thumb = common.parseDOM(main_page[0], 'img', ret='src')[0]
+        all_links = common.parseDOM(main_page, 'a')
+        all_links_titles = common.parseDOM(main_page, 'a', ret='href')
+        thumb = next(iter(common.parseDOM(main_page, 'img', ret='src')), '')
 
         # for row in all_links:
         for i in range(0, len(all_links)):
@@ -393,18 +434,39 @@ def get_extramovies(content_url):
                               'video': video_link,
                               'genre': genre}
                              )
+
     if not found_link:
         filepath = os.path.join(xbmc.translatePath('special://home'), 'userdata', 'extramovies.json')
         all_urls = []
         new_listings_added = False
         looper = True
+        new_movieList = []
+        page_counter = 0
         if os.path.isfile(filepath):
             with open(filepath) as f:
                 movieList = json.load(f)
                 for m in movieList:
                     all_urls.append(m['video'])
 
+        dp = xbmcgui.DialogProgress()
+        dp.create("Extramovies", "", content_url)
+        total_pages = 0
+        try:
+            last_page = common.parseDOM(page.text, 'a', attrs={'class': 'page-numbers'})[-1]
+            last_page = common.stripTags(last_page)
+            last_page = last_page.replace('Page', '')
+            total_pages = int(last_page)
+        except ValueError:
+            total_pages = 1000  # consider max 1000 pages
+
         while looper:
+            if dp.iscanceled():
+                return new_movieList + movieList
+
+            page_counter = page_counter + 1
+            percent = min((page_counter * 100) / total_pages, 100)
+            dp.update(percent, "Fetching page %s" % content_url, "%s of %s" % (page_counter, total_pages))
+
             page = requests.get(content_url)
             upper = common.parseDOM(page.text, 'div', attrs={'class': 'imag'})
             print(upper)
@@ -423,11 +485,11 @@ def get_extramovies(content_url):
 
                 if video_url in all_urls:
                     looper = False
-                    break
+                    continue
 
                 new_listings_added = True
 
-                movieList.append({
+                new_movieList.append({
                     'video': video_url,
                     'thumb': thumb,
                     'name': title,
@@ -441,6 +503,7 @@ def get_extramovies(content_url):
                 looper = False
         if new_listings_added:
             with open(filepath, 'w') as outfile:
+                movieList = new_movieList + movieList
                 json.dump(movieList, outfile)
 
     return movieList
@@ -900,7 +963,7 @@ def list_contents(category):
         # print('getting url of the video link')
         # print(video['video'])
         if is_playable(video['video']):
-            list_item.setLabel(video['name'] + '***SUPPORTED***')
+            list_item.setLabel(video['name'] + '[COLOR=yellow] ***SUPPORTED*** [/COLOR]')
             list_item.setProperty('IsPlayable', 'true')
             url = get_url(action='play', video=video['video'])
             is_folder = False
@@ -983,6 +1046,25 @@ def unescape(content):
     return h.unescape(content)
 
 
+def clear_cache(provider):
+    filepath = ''
+    if provider == 'Extramovies':
+        filepath = os.path.join(xbmc.translatePath('special://home'), 'userdata', 'extramovies.json')
+        print('clearning extramovies cache')
+    elif provider == 'HdHub4u':
+        filepath = os.path.join(xbmc.translatePath('special://home'), 'userdata', 'hdhub.json')
+    elif provider == 'MovieRetina':
+        filepath = os.path.join(xbmc.translatePath('special://home'), 'userdata', 'movieretina.json')
+    else:
+        print('Unable to clear cache. Error: Invalid provider')
+        return
+    with open(filepath, 'w') as outfile:
+        movieList = []
+        json.dump(movieList, outfile)
+        xbmc.executebuiltin(
+            'Notification(Cache cleared successfully,5000)')
+
+
 def router(paramstring):
     """
     Router function that calls other functions
@@ -999,6 +1081,9 @@ def router(paramstring):
         if params['action'] == 'listing':
             # Display the list of videos in a provided category.
             list_contents(params['category'])
+        elif params['action'] == '_clear_cache':
+            # Play a video from a provided URL.
+            clear_cache(params['provider'])
         elif params['action'] == 'play':
             # Play a video from a provided URL.
             play_video(params['video'])

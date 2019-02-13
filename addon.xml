@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <addon id="plugin.video.bloimediaplayer"
-version="0.8.2"
+version="0.9.0.1"
 name="Bloi Media Player"
 provider-name="MnsRulz">
 <requires>
@@ -19,7 +19,8 @@ provider-name="MnsRulz">
     <icon>icon.png</icon>
     <fanart>fanart.jpg</fanart>
   </assets>
-  <news>Feb 10, 2019 Various cdn added
+  <news>Feb 13, 2019 Caching support added
+    /nFeb 10, 2019 Various cdn added
 	/nJan 26, 2019 extramovies host added as a source 
 	/nmovieretina added as a source with hd gdrive links /nInitial version</news>
 </extension>
