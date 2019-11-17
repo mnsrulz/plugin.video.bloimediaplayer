@@ -5,7 +5,6 @@
 # License: GPL v.3 https://www.gnu.org/copyleft/gpl.html
 
 import sys
-import urllib
 from urllib import urlencode
 from urlparse import urljoin
 from urlparse import parse_qsl
@@ -21,6 +20,9 @@ import time
 import base64
 import HTMLParser
 import os
+import urlresolver
+from libs.bcp import BaseClassPlugin
+from libs.plugins import *
 
 common = CommonFunctions
 # from bs4 import BeautifulSoup
@@ -42,8 +44,8 @@ VIDEOS = {'https://www.tamilmv.cz': [{'name': 'Chicken',
                     'thumb': 'https://2.bp.blogspot.com/-u8ya2x-bSTs/W4765dKMORI/AAAAAAAAAtI/-x5_yrgo3Bk8iylKMoeRg7Qtm4Xck2TBQCLcBGAs/s1600/MovieRetina%2BBlue%2BLogo.png',
                     'video': 'http://www.vidsplay.com/wp-content/uploads/2017/05/bbqchicken.mp4',
                     'genre': 'Food'}],
-          'https://extramovies.host': [{'name': 'Chicken',
-                    'thumb': 'http://extramovies.host/wp-content/uploads/2018/03/logo.png',
+          'https://extramovies.blue': [{'name': 'Chicken',
+                    'thumb': 'https://extramovies.blue/wp-content/uploads/2018/03/logo.png',
                     'video': 'http://www.vidsplay.com/wp-content/uploads/2017/05/bbqchicken.mp4',
                     'genre': 'Food'}],
           'https://hdhub4u.host': [{'name': 'Chicken',
@@ -65,8 +67,8 @@ def get_url(**kwargs):
 
 
 def is_playable(content_url):
-    # print('is playable called for ')
-    # print(content_url)
+    print('is playable called for ')
+    print(content_url)
     if content_url.startswith('https://linkstaker.') or content_url.startswith('https://mvlinks.ooo') \
             or content_url.startswith('https://anotepad') \
             or content_url.startswith('https://pastebin') \
@@ -121,446 +123,47 @@ def get_folder_content(category):
     :rtype: list
     """
     print('We are in get_category folder: ' + category)
-    if category.startswith('https://movieretina'):
-        # Display the list of videos in a provided category.
-        return get_movie_retina(category)
-    elif category.startswith('https://hdhub4u'):
+
+    return_value = dynamic_execute(category)
+    if return_value:
+        return return_value
+
+    if category.startswith('https://solarsystem')\
+            or category.startswith('https://cr-news'):
         # Play a video from a provided URL.
-        return get_hdhub(category)
+        return get_solarsystem(category)
+    elif category.startswith('https://hblinks.pw'):
+        return get_generic(category)
     elif category.startswith('https://linkscare') or category.startswith('https://linkrit')\
             or category.startswith('https://keeplinks')\
             or re.match('https?:\/\/extralinks.[\w\d]*/view', category):
         return get_linkscare(category)
     elif category.startswith('https://uptobox.com'):
-        return uptobox(category)
-    elif category.startswith('https://www.tamilmv'):
-        return get_tamilmv(category)
-    elif category.startswith('https://extramovies') or category.startswith('http://extramovies') :
-        return get_extramovies(category)
+        return uptoboxRESOLVER(category)
     else:
         return VIDEOS[category]
 
 
-def get_movie_retina(content_url):
-    movieList = []
-    genre = 'movie'
-    headers = {
-        'User-Agent': 'Mozilla'
-    }
-    page = requests.get(content_url, headers=headers)
-    print("get movie retina: " + content_url)
+def load_modules():
+    print('calling load modules')
+    classes = BaseClassPlugin.__class__.__subclasses__(BaseClassPlugin)
+    print('printing all the classes')
+    print(classes)
 
-    detail_page_container = common.parseDOM(page.text, 'div', attrs={'class': 'bw_desc'})
-
-    if len(detail_page_container) > 0:
-        found_link = False
-        if "DelayRedirect()" in page.text:
-            movie_title = common.stripTags(common.parseDOM(page.text, 'h1', attrs={'class': 'bw_h1title_single'})[0])
-            thumb = common.parseDOM(page.text, 'img', attrs={'class': 'bw_poster'}, ret='src')[0]
-            print('Printing movie_retina page')
-            print(re.findall('(?:anotepad|pastebin)[^"]*', page.text))
-            print('new len of regex found: ' + str(len(re.findall('(?:anotepad|pastebin)[^"]*', page.text))))
-            # print(page.text.encode('ascii', 'ignore').decode('ascii'))
-
-            video_url = re.findall('(?:anotepad|pastebin)[^"]*', page.text)
-            if len(video_url)>0:
-                found_link = True
-                print('Found a movie_retina url: ' + 'https://' + video_url[0])
-                movieList.append({'name': movie_title,
-                                  'thumb': thumb,
-                                  'video': 'https://' + video_url[0],
-                                  'genre': genre}
-                                 )
-        if not found_link:  # even if the link contains delayredirect text, some page still fails
-            print('found detail page container')
-            thumb = ''
-            movie_thumb = common.parseDOM(detail_page_container, 'img', ret='src')
-            if len(movie_thumb) > 0:
-                print('found detail page thumb')
-                thumb = movie_thumb[0]
-            movie_links = common.parseDOM(detail_page_container, 'tr')
-            for row in movie_links:
-                print('iterating movie links')
-                movie_links_title = common.parseDOM(row, 'th')
-                if len(movie_links_title) > 0:
-                    print(movie_links_title)
-                    movie_title = common.stripTags(movie_links_title[0])
-                    print('movie link title found')
-                    movie_links_details = common.parseDOM(row, 'td')
-                    if len(movie_links_details) > 0:
-                        print('movie link details found')
-                        first_td = movie_links_details[0]
-                        print(first_td)
-                        regex_result = re.findall("https://mvlinks.*'", first_td)
-                        if len(regex_result) > 0:
-                            result = regex_result[0][:-1]
-                            video_url = result
-                            movieList.append({'name': movie_title,
-                                              'thumb': thumb,
-                                              'video': video_url,
-                                              'genre': genre}
-                                             )
-    else:
-        filepath = os.path.join(xbmc.translatePath('special://home'), 'userdata', 'movieretina.json')
-        all_urls = []
-        new_listings_added = False
-        looper = True
-        new_movieList = []
-        page_counter = 0
-        if os.path.isfile(filepath):
-            with open(filepath) as f:
-                movieList = json.load(f)
-                for m in movieList:
-                    all_urls.append(m['video'])
-        dp = xbmcgui.DialogProgress()
-        dp.create("MovieRetina", "", content_url)
-        total_pages = 0
-        try:
-            last_page = common.parseDOM(page.text, 'a', attrs={'class': 'page-numbers'})[-1]
-            last_page = common.stripTags(last_page)
-            last_page = last_page.replace('Page', '')
-            total_pages = int(last_page)
-        except ValueError:
-            total_pages = 1000  # consider max 1000 pages
-
-        while looper:
-            if dp.iscanceled():
-                return new_movieList + movieList
-
-            page_counter = page_counter + 1
-            percent = min((page_counter * 100) / total_pages, 100)
-            dp.update(percent, "Fetching page %s" % content_url, "%s of %s" % (page_counter, total_pages))
-
-            page = requests.get(content_url, headers=headers)
-            upper = common.parseDOM(page.text, 'div', attrs={'class': 'bw_thumb_title'})
-            # soup = BeautifulSoup(page.text, 'html.parser')
-            # upper = soup.find_all('div', attrs={'class': 'bw_thumb_title'})
-            print('iterating the thumb titles')
-            print(upper)
-            for row in upper:
-                thumb = common.parseDOM(row, 'img', ret='src')[0]
-                # print(thumb)
-                figure_caption = common.parseDOM(row, 'h1')[0]
-                # print(figure_caption)
-                title = common.stripTags(figure_caption)
-                # print(title)
-                video_url = common.parseDOM(row, 'a', ret='href')[0]
-                if video_url in all_urls:
-                    looper = False
-                    continue
-
-                new_listings_added = True
-
-                new_movieList.append({'name': title,
-                                  'thumb': thumb,
-                                  'video': video_url,
-                                  'genre': genre})
-            next_page_link = common.parseDOM(page.text, 'a', attrs={'class': 'next page-numbers'}, ret='href')
-            print('printing the next page link')
-            if len(next_page_link) > 0:
-                content_url = next_page_link[0]
-            else:
-                looper = False
-        if new_listings_added:
-            with open(filepath, 'w') as outfile:
-                movieList = new_movieList + movieList
-                json.dump(movieList, outfile)
-    return movieList
+    for c in classes:
+        print(c)
+        ob = c()
+        print('object created dynamically')
+        yield ob
 
 
-def get_hdhub(content_url):
-    genre = 'movie'
-    movieList = []
-    print('downloading hdhub content url')
-    # print(content_url)
-    page = requests.get(content_url)
-    print(page.status_code)
-    main_page = common.parseDOM(page.text, 'main', attrs={"class": "page-body"})
-    found_link = False
-    print('found content....')
-    print(len(main_page))
-    if len(main_page) > 0:
-        all_links = common.parseDOM(main_page[0], 'a', ret='href')
-        thumb = common.parseDOM(main_page[0], 'img', ret='src')[0]  # sample only
-        for row in all_links:
-            print('printing all_links element second time')
-            # if row.startswith('https://linkstaker.') or row.startswith('https://linkscare.net'):
-            print('found one useful link')
-            print(row)
-            found_link = True
-            movieList.append({'name': row,
-                              'thumb': thumb,
-                              'video': row,
-                              'genre': genre}
-                             )
-    if not found_link:
-        filepath = os.path.join(xbmc.translatePath('special://home'), 'userdata', 'hdhub.json')
-        all_urls = []
-        new_listings_added = False
-        looper = True
-        new_movieList = []
-        page_counter = 0
-        if os.path.isfile(filepath):
-            with open(filepath) as f:
-                movieList = json.load(f)
-                for m in movieList:
-                    all_urls.append(m['video'])
-        dp = xbmcgui.DialogProgress()
-        dp.create("Hdhub4u", "", content_url)
-        total_pages = 0
-        try:
-            last_page = common.parseDOM(page.text, 'a', attrs={'class': 'page-numbers'})[-1]
-            last_page = common.stripTags(last_page)
-            last_page = last_page.replace('Page', '')
-            total_pages = int(last_page)
-        except ValueError:
-            total_pages = 1000  # consider max 1000 pages
+def dynamic_execute(cu):
+    for inst in load_modules():
+        return_value = inst.get_content(cu)
+        if return_value:
+            return return_value
+    return False
 
-        while looper:
-            if dp.iscanceled():
-                return new_movieList + movieList
-
-            page_counter = page_counter + 1
-            percent = min((page_counter * 100) / total_pages, 100)
-            dp.update(percent, "Fetching page %s" % content_url, "%s of %s" % (page_counter, total_pages))
-
-            page = requests.get(content_url)
-            upper = common.parseDOM(page.text, 'figure')
-            print(upper)
-            # soup = BeautifulSoup(page.text, 'html.parser')
-            # upper = soup.find_all('div', attrs={'class': 'bw_thumb_title'})
-            for row in upper:
-                # print(row)
-                thumb = common.parseDOM(row, 'img', ret='src')[0]
-                # print(thumb)
-                figure_caption = common.parseDOM(row, 'figcaption')[0]
-                # print(figure_caption)
-                title = common.stripTags(figure_caption)
-                # print(title)
-                video_url = common.parseDOM(figure_caption, 'a', ret='href')[0]
-                # print(video_url)
-                if video_url in all_urls:
-                    looper = False
-                    continue
-
-                new_listings_added = True
-
-                new_movieList.append({'name': title,
-                                  'thumb': thumb,
-                                  'video': video_url,
-                                  'genre': genre}
-                                 )
-            next_page_link = common.parseDOM(page.text, 'a', attrs={'class': 'next page-numbers'}, ret='href')
-            if len(next_page_link) > 0:
-                content_url = next_page_link[0]
-            else:
-                looper = False
-        if new_listings_added:
-            with open(filepath, 'w') as outfile:
-                movieList = new_movieList + movieList
-                json.dump(movieList, outfile)
-
-    return movieList
-
-
-def get_extramovies(content_url):
-    genre = 'movie'
-    movieList = []
-    print('downloading extramovies content url: ' + content_url)
-    page = requests.get(content_url)
-    print(page.status_code)
-    main_page = common.parseDOM(page.text, 'div', attrs={"class": "entry clearfix"})
-    if len(main_page) == 0:
-        main_page = common.parseDOM(page.text, 'div', attrs={"class": "wrap"})
-    found_link = False
-    print('found extra movies content....')
-    print(len(main_page))
-    if len(main_page) > 0:
-        all_links = common.parseDOM(main_page, 'a')
-        all_links_titles = common.parseDOM(main_page, 'a', ret='href')
-        thumb = next(iter(common.parseDOM(main_page, 'img', ret='src')), '')
-
-        # for row in all_links:
-        for i in range(0, len(all_links)):
-            video_link = all_links_titles[i]
-            print('Printing original video link : ' + video_link)
-            video_link = urljoin(page.url, video_link)
-            absolute_parsed_url = urlparse(video_link)
-            row = all_links[i]
-            if absolute_parsed_url.path.startswith('/drive.php'):
-                print('found a google drive link... downloading the content of the page')
-                parsed_base_url = urlparse(content_url)
-                google_drive_download_page = requests.get(video_link)
-                google_drive_links = common.parseDOM(google_drive_download_page.text, 'a', ret='href')
-                for each_link in google_drive_links:
-                    if each_link.startswith('http://extralinks'):
-                        video_link = each_link
-            elif absolute_parsed_url.path.startswith('/download.php'):
-                video_link = video_link.replace('#038;', '')    # cleaning a bit
-                print('printing query segments of the url')
-                query_param = parse_qs(urlparse(video_link).query)
-                print(parse_qs(urlparse(video_link).query))
-                decoded_link = base64.b64decode(query_param['link'][0])
-                print('decoded link : ' + decoded_link)
-                video_link = decoded_link
-            elif absolute_parsed_url.path.startswith('/vidoza.php'):
-                query_param = parse_qs(absolute_parsed_url.query)
-                decoded_link = query_param['url'][0]
-                video_link = 'https://vidoza.net/' + decoded_link
-                print('vidoza link found... ' + video_link)
-            elif absolute_parsed_url.path.startswith('/uptostream.php'):
-                query_param = parse_qs(absolute_parsed_url.query)
-                decoded_link = query_param['url'][0]
-                video_link = 'https://uptostream.com/' + decoded_link
-                print('uptostream link found... ' + video_link)
-            elif re.match('\/(trailer.php|cast\/|director\/|author\/)', absolute_parsed_url.path) or \
-                    absolute_parsed_url.netloc.startswith('ghoto-12'):
-                print('Ignoring this link')
-                continue
-            elif 'extralinks' in video_link:
-                print('found a extralink...')
-            else:
-                video_link = absolute_parsed_url.geturl()
-                print('some unknown link... still adding')
-                #continue
-
-            print('printing all_links element second time')
-            # if row.startswith('https://linkstaker.') or row.startswith('https://linkscare.net'):
-            print('found one useful link: ' + video_link)
-            # print(row)
-            found_link = True
-            movieList.append({'name': common.stripTags(row) + ' ## ' + video_link,
-                              'thumb': thumb,
-                              'video': video_link,
-                              'genre': genre}
-                             )
-
-    if not found_link:
-        filepath = os.path.join(xbmc.translatePath('special://home'), 'userdata', 'extramovies.json')
-        all_urls = []
-        new_listings_added = False
-        looper = True
-        new_movieList = []
-        page_counter = 0
-        if os.path.isfile(filepath):
-            with open(filepath) as f:
-                movieList = json.load(f)
-                for m in movieList:
-                    all_urls.append(m['video'])
-
-        dp = xbmcgui.DialogProgress()
-        dp.create("Extramovies", "", content_url)
-        total_pages = 0
-        try:
-            last_page = common.parseDOM(page.text, 'a', attrs={'class': 'page-numbers'})[-1]
-            last_page = common.stripTags(last_page)
-            last_page = last_page.replace('Page', '')
-            total_pages = int(last_page)
-        except ValueError:
-            total_pages = 1000  # consider max 1000 pages
-
-        while looper:
-            if dp.iscanceled():
-                return new_movieList + movieList
-
-            page_counter = page_counter + 1
-            percent = min((page_counter * 100) / total_pages, 100)
-            dp.update(percent, "Fetching page %s" % content_url, "%s of %s" % (page_counter, total_pages))
-
-            page = requests.get(content_url)
-            upper = common.parseDOM(page.text, 'div', attrs={'class': 'imag'})
-            print(upper)
-            # soup = BeautifulSoup(page.text, 'html.parser')
-            # upper = soup.find_all('div', attrs={'class': 'bw_thumb_title'})
-            for row in upper:
-                # print(row)
-                thumb = common.parseDOM(row, 'img', ret='src')[0]
-                # print(thumb)
-                figure_caption = common.parseDOM(row, 'a', ret='title')[0]
-                # print(figure_caption)
-                title = common.stripTags(figure_caption)
-                # print(title)
-                video_url = common.parseDOM(row, 'a', ret='href')[0]
-                # print(video_url)
-
-                if video_url in all_urls:
-                    looper = False
-                    continue
-
-                new_listings_added = True
-
-                new_movieList.append({
-                    'video': video_url,
-                    'thumb': thumb,
-                    'name': title,
-                    'genre': genre
-                })
-
-            next_page_link = common.parseDOM(page.text, 'a', attrs={'class': 'next page-numbers'}, ret='href')
-            if len(next_page_link) > 0:
-                content_url = next_page_link[0]
-            else:
-                looper = False
-        if new_listings_added:
-            with open(filepath, 'w') as outfile:
-                movieList = new_movieList + movieList
-                json.dump(movieList, outfile)
-
-    return movieList
-
-
-def get_tamilmv(content_url):
-    movieList = []
-    genre = 'movie'
-    headers = {
-        'User-Agent': 'Mozilla'
-    }
-    page = requests.get(content_url, headers=headers)
-    # print(page)
-    print(content_url)
-    print(page.status_code)
-    print('getting pln container')
-    pln_container = common.parseDOM(page.text, 'span', attrs={'class': 'pln'})
-    print(len(pln_container))
-
-    if len(pln_container) > 0:
-        all_links = pln_container[0].splitlines()
-        for row in all_links:
-            print(row)
-            movieList.append({'name': row,
-                              'thumb': '',
-                              'video': row,
-                              'genre': genre}
-                             )
-        print(all_links)
-    else:
-        upper_container = common.parseDOM(page.text, 'div', attrs={'class': 'ipsWidget_inner '})
-        print(len(upper_container))
-        upper = common.parseDOM(upper_container, 'a', ret='href')
-        print(upper[0])
-        # soup = BeautifulSoup(page.text, 'html.parser')
-        # upper = soup.find_all('div', attrs={'class': 'bw_thumb_title'})
-        print('iterating the thumb titles')
-        print(len(upper))
-        print(upper)
-        for row in upper:
-            print(row)
-            thumb = ''  # common.parseDOM(row, 'img', ret='src')[0]
-            # print(thumb)
-            title = row
-            if title.endswith('/'):
-                title = title[:-1]
-
-            title = title.rsplit('/', 1)[-1]
-            # print(title)
-            video_url = row
-
-            movieList.append({'name': title,
-                              'thumb': thumb,
-                              'video': video_url,
-                              'genre': genre}
-                             )
-    return movieList
 
 def get_linkscare(content_url):
     movieList = []
@@ -579,7 +182,7 @@ def get_linkscare(content_url):
     print(payload)
     post_result = sessionrequest.post(page.url, data=payload, headers=headers)
     print(post_result.status_code)
-    print(post_result.text.encode('ascii', 'ignore').decode('ascii'))
+    # print(post_result.text.encode('ascii', 'ignore').decode('ascii'))
     container_div = \
     common.parseDOM(post_result.text, 'div', attrs={'class': 'col-sm-8 col-sm-offset-2 well view-well'})
     if len(container_div) > 0:
@@ -594,6 +197,52 @@ def get_linkscare(content_url):
         print(video_url)
         movieList.append({'name': video_url,
                           'thumb': thumb,
+                          'video': video_url,
+                          'genre': genre}
+                         )
+    return movieList
+
+
+def get_solarsystem(content_url):
+    movieList = []
+    print('fetching solarsystem url')
+    print(content_url)
+    page = requests.get(content_url)
+    print(page.status_code)
+
+    safeLinkContainer = common.parseDOM(page.text, 'div', attrs={'id': 'wpsafe-link'})
+
+    j = common.parseDOM(safeLinkContainer, "a", ret="href")
+
+    for row in j:
+        # row = urlparse(row)
+        query_param = parse_qs(urlparse(row).query)
+        video_url = query_param['safelink_redirect'][0]
+        genre = 'movie'
+        print(video_url)
+        movieList.append({'name': video_url,
+                          'thumb': "",
+                          'video': video_url,
+                          'genre': genre}
+                         )
+    return movieList
+
+
+def get_generic(content_url):
+    movieList = []
+    print('fetching generic url')
+    print(content_url)
+    page = requests.get(content_url)
+    print(page.status_code)
+
+    j = common.parseDOM(page.text, "a", ret="href")
+
+    for row in j:
+        video_url = row
+        genre = 'movie'
+        print(video_url)
+        movieList.append({'name': video_url,
+                          'thumb': "",
                           'video': video_url,
                           'genre': genre}
                          )
@@ -629,6 +278,19 @@ def uptobox(content_url):
                           'video': video_url,
                           'genre': genre}
                          )
+    return movieList
+
+
+def uptoboxRESOLVER(content_url):
+    video_url = urlresolver.resolve(content_url)
+    movieList = []
+    genre = 'movie'
+    print(video_url)
+    movieList.append({'name': video_url,
+                      'thumb': '',
+                      'video': video_url,
+                      'genre': genre}
+                     )
     return movieList
 
 
@@ -992,7 +654,14 @@ def play_video(path):
     """
     print('trying to find the playable source for : ' + path)
     # we need to make practice of using regex more & more
-    if re.match('https?:\/\/(linkstaker|extralinks)', path):
+    resolvedpath = urlresolver.resolve(path)
+    print(path)
+    print('resolved url ')
+    print(resolvedpath)
+
+    if resolvedpath:
+        path = resolvedpath
+    elif re.match('https?:\/\/(linkstaker|extralinks)', path):
         page = requests.get(path)
         print('fetching links care url')
         print(path)
@@ -1012,7 +681,8 @@ def play_video(path):
     elif re.match('https?:\/\/zupload', path):
         path = get_zupload_playable_path(path)
     elif re.match('https?:\/\/userscloud', path):
-        path = get_userscloud_playable_path(path)
+        #path = get_userscloud_playable_path(path)
+        path = urlresolver.resolve(path)
     elif re.match('https?:\/\/clicknupload', path):
         path = get_clicknupload_playable_path(path)
     elif re.match('https?:\/\/racaty', path):
