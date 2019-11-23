@@ -1,13 +1,18 @@
-import re
 import sys
 from urllib import urlencode
+from urlparse import urljoin
 from urlparse import parse_qsl
+from urlparse import urlparse, parse_qs
 import xbmc
 import xbmcgui
 import xbmcplugin
 import requests
+import re
 import json
 import CommonFunctions
+import time
+import base64
+import HTMLParser
 import os
 from libs.bcp import BaseClassPlugin
 common = CommonFunctions

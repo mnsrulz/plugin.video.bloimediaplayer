@@ -32,6 +32,17 @@ _url = sys.argv[0]
 # Get the plugin handle as an integer number.
 _handle = int(sys.argv[1])
 
+print(os.path.abspath(__file__))
+_plugin_dir = os.path.dirname(os.path.abspath(__file__))
+path_to_plugins = os.path.join(_plugin_dir, 'libs', 'urlresolver_plugins')
+# print(_exter_dir)
+# print(os.path.join(os.getcwd(),'libs/urlresolver_plugins'))
+#
+# path_to_plugins = xbmc.translatePath('libs/urlresolver_plugins')
+print('path to plugins')
+print(path_to_plugins)
+urlresolver.add_plugin_dirs(path_to_plugins)
+
 # Free sample videos are provided by www.vidsplay.com
 # Here we use a fixed set of properties simply for demonstrating purposes
 # In a "real life" plugin you will need to get info and links to video files/streams
@@ -48,8 +59,12 @@ VIDEOS = {'https://www.tamilmv.cz': [{'name': 'Chicken',
                     'thumb': 'https://extramovies.blue/wp-content/uploads/2018/03/logo.png',
                     'video': 'http://www.vidsplay.com/wp-content/uploads/2017/05/bbqchicken.mp4',
                     'genre': 'Food'}],
-          'https://hdhub4u.host': [{'name': 'Chicken',
-                    'thumb': 'https://hdhub4u.pw/wp-content/uploads/2018/09/rsz_1coollogo_com-16691619.png',
+            'https://ww1.0gomovies.com/browse/': [{'name': 'Chicken',
+                    'thumb': 'https://ww1.0gomovies.com/wp-content/themes/assets/images/logo-dark.png',
+                    'video': 'http://www.vidsplay.com/wp-content/uploads/2017/05/bbqchicken.mp4',
+                    'genre': 'Food'}],
+          'https://hdhub4u.live': [{'name': 'Chicken',
+                    'thumb': 'https://hdhub4u.live/wp-content/uploads/2019/10/2.png',
                     'video': 'http://www.vidsplay.com/wp-content/uploads/2017/05/bbqchicken.mp4',
                     'genre': 'Food'}]}
 
@@ -74,7 +89,8 @@ def is_playable(content_url):
             or content_url.startswith('https://pastebin') \
             or content_url.startswith('https://vidoza') \
             or re.match('https:\/\/(zupload|userscloud|streamango|streamcherry|'
-                        'clicknupload|racaty|desiupload|bdupload|www.indishare|indishare)', content_url) \
+                        'cloud.mail.ru|dl1.indishare|'
+                        'clicknupload|racaty|desiupload|dl.bdupload|www.indishare|indishare|streamwire|megaup)', content_url) \
             or re.match('https:\/\/(drive|docs).google.com', content_url) \
             or content_url.startswith('https://openload') \
             or re.match('https?:\/\/extralinks.[\w\d]*/more', content_url) \
@@ -396,26 +412,6 @@ def get_gdrive_playable_path(content_url):
         return ''
 
 
-def get_zupload_playable_path(content_url):
-    print('fetching zupload url: ' + content_url)
-    zuploadsessionrequest = requests.session()
-    page = zuploadsessionrequest.get(content_url)
-    print(page.status_code)
-    pt_value = common.parseDOM(page.text, 'input', attrs={'name': 'pt'}, ret='value')[0]
-    payload = {
-                'pt': pt_value,
-                'user_name': '',
-                'submit': 'Submit'
-                }
-    print('post data... ')
-    print(payload)
-    post_result = zuploadsessionrequest.post(page.url, data=payload)
-    print(post_result.status_code)
-    print(post_result.text)
-    download_link = common.parseDOM(post_result.text, 'a', attrs={'class': 'link_button'}, ret='href')[0]
-    return download_link
-
-
 def get_userscloud_playable_path(content_url):
     print('fetching userscloud url: ' + content_url)
     userscloudsessionrequest = requests.session()
@@ -442,106 +438,25 @@ def get_userscloud_playable_path(content_url):
     return ''
 
 
-def get_clicknupload_playable_path(content_url):
-    print('fetching clicknupload url: ' + content_url)
-    clicknuploadsessionrequest = requests.session()
-    page = clicknuploadsessionrequest.get(content_url)
-    print(page.status_code)
-    form_which_need_to_post = common.parseDOM(page.text, 'Form')[0]
-    print(form_which_need_to_post)
-    id_value = common.parseDOM(form_which_need_to_post, 'input', attrs={'name': 'id', 'type': 'hidden'}, ret='value')[0]
-    payload = {}
-    payload['op'] = 'download2'
-    payload['id'] = id_value
-    payload['rand'] = ''
-    payload['referer'] = page.url
-    payload['method_free'] = 'Free Download >>'
-    payload['method_premium'] = ''
-    payload['adblock_detected'] = ''
-
-    # for n, v in zip(name_collection, value_collection):
-    #     payload[str(n)] = str(v)
-    print('post payload ready to post')
-    print(payload)
-    post_result = clicknuploadsessionrequest.post(page.url, data=payload)
-    print(post_result.status_code)
-    # print('printing clicknupload page post form')
-    # print_normalized(post_result.text)
-
-    download_links = common.parseDOM(post_result.text, 'button', attrs={'id': 'downloadbtn'}, ret='onClick')[0]
-    final_download_url = re.findall("http[^']*", download_links)[0]
-    print('found some useful for clicknupload')
-    print_normalized(final_download_url)
-    return final_download_url
-
-
-def get_racaty_playable_path(content_url):
-    print('fetching racaty url: ' + content_url)
-    racatysessionrequest = requests.session()
-    page = racatysessionrequest.get(content_url)
-    print(page.status_code)
-    form_which_need_to_post = common.parseDOM(page.text, 'form')[0]
-    print(form_which_need_to_post)
-    id_value = common.parseDOM(form_which_need_to_post, 'input', attrs={'name': 'id', 'type': 'hidden'}, ret='value')[0]
-    token_value = common.parseDOM(form_which_need_to_post, 'input', attrs={'name': 'token', 'type': 'hidden'}, ret='value')[0]
-    fname_value = common.parseDOM(form_which_need_to_post, 'input', attrs={'name': 'fname', 'type': 'hidden'}, ret='value')[0]
-    payload = {}
-    payload['op'] = 'download2'
-    payload['id'] = id_value
-    payload['usr_login'] = ''
-    payload['referer'] = page.url
-    payload['token'] = token_value
-    payload['method_free'] = 'Free Download'
-    payload['fname'] = fname_value
-
-    print('post payload ready to post')
-    print(payload)
-    post_result = racatysessionrequest.post(page.url, allow_redirects=False, data=payload)
-    print(post_result.status_code)
-    return post_result.headers['Location']
-
-
-def get_desiupload_playable_path(content_url):
-    print('fetching desiupload/indishare url: ' + content_url)
-    desiuploadsessionrequest = requests.session()
-    page = desiuploadsessionrequest.get(content_url)
-    print(page.status_code)
-    form_which_need_to_post = common.parseDOM(page.text, 'form', attrs={'name': 'F1'})[0]
-    print(form_which_need_to_post)
-    id_value = common.parseDOM(form_which_need_to_post, 'input', attrs={'name': 'id', 'type': 'hidden'}, ret='value')[0]
-    payload = {}
-    payload['op'] = 'download2'
-    payload['id'] = id_value
-
-    print('post payload ready to post')
-    print(payload)
-    post_result = desiuploadsessionrequest.post(page.url, data=payload)
-    print(post_result.status_code)
-    download_span_container = common.parseDOM(post_result.text, 'span', attrs={'id': 'direct_link'})
-    final_download_url = common.parseDOM(download_span_container, 'a', ret='href')[0]
-    print(final_download_url)
-    return final_download_url
-
-
-def get_bdupload_playable_path(content_url):
-    print('fetching bdupload url: ' + content_url)
-    bduploadsessionrequest = requests.session()
-    page = bduploadsessionrequest.get(content_url)
-    print(page.status_code)
-    form_which_need_to_post = common.parseDOM(page.text, 'form', attrs={'name': 'F1'})[0]
-    print(form_which_need_to_post)
-    id_value = common.parseDOM(form_which_need_to_post, 'input', attrs={'name': 'id', 'type': 'hidden'}, ret='value')[0]
-    payload = {}
-    payload['op'] = 'download2'
-    payload['id'] = id_value
-
-    print('post payload ready to post')
-    print(payload)
-    post_result = bduploadsessionrequest.post(page.url, data=payload)
-    print(post_result.status_code)
-    print_normalized(post_result.text)
-    regexmatches = re.findall('http:\/\/\w*.indifiles.com[^"]*', post_result.text)
-    return regexmatches[0]
+# def get_bdupload_playable_path(content_url):
+#     print('fetching bdupload url: ' + content_url)
+#     bduploadsessionrequest = requests.session()
+#     page = bduploadsessionrequest.get(content_url)
+#     print(page.status_code)
+#     form_which_need_to_post = common.parseDOM(page.text, 'form', attrs={'name': 'F1'})[0]
+#     print(form_which_need_to_post)
+#     id_value = common.parseDOM(form_which_need_to_post, 'input', attrs={'name': 'id', 'type': 'hidden'}, ret='value')[0]
+#     payload = {}
+#     payload['op'] = 'download2'
+#     payload['id'] = id_value
+#
+#     print('post payload ready to post')
+#     print(payload)
+#     post_result = bduploadsessionrequest.post(page.url, data=payload)
+#     print(post_result.status_code)
+#     print_normalized(post_result.text)
+#     regexmatches = re.findall('http:\/\/\w*.indifiles.com[^"]*', post_result.text)
+#     return regexmatches[0]
 
 
 def list_categories():
@@ -678,19 +593,6 @@ def play_video(path):
             path.startswith('https://vidoza.net') or path.startswith('http://vidoza.net'):
         page = requests.get(path)
         path = common.parseDOM(page.text, 'source', ret='src')[0]
-    elif re.match('https?:\/\/zupload', path):
-        path = get_zupload_playable_path(path)
-    elif re.match('https?:\/\/userscloud', path):
-        #path = get_userscloud_playable_path(path)
-        path = urlresolver.resolve(path)
-    elif re.match('https?:\/\/clicknupload', path):
-        path = get_clicknupload_playable_path(path)
-    elif re.match('https?:\/\/racaty', path):
-        path = get_racaty_playable_path(path)
-    elif re.match('https?:\/\/desiupload', path) or re.match('https?:\/\/www.indishare', path):
-        path = get_desiupload_playable_path(path)
-    elif re.match('https?:\/\/bdupload', path):
-        path = get_bdupload_playable_path(path)
     elif re.match('https?:\/\/(streamango|streamcherry|openload)', path):
         page = requests.get(path)
         result = requests.post('https://gd2gp-dev.herokuapp.com/ol', json={'b': page.text, 'u': path})

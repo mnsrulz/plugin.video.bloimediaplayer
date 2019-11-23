@@ -29,7 +29,7 @@ class HdHub(BaseClassPlugin):
         genre = 'movie'
         movieList = []
         print('downloading hdhub content url')
-        # print(content_url)
+        print(content_url)
         page = requests.get(content_url)
         print(page.status_code)
         main_page = common.parseDOM(page.text, 'main', attrs={"class": "page-body"})
